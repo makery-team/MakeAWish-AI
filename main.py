@@ -1,59 +1,90 @@
-import os
+import base64
+import io
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from google import genai
-from google.genai import types
 from PIL import Image
 from dotenv import load_dotenv
 
-# 1. 환경 변수 로드 (.env에서 GEMINI_API_KEY 자동 인식)
+# 1. 환경 변수 로드
 load_dotenv()
 
-# 2. 신형 SDK 클라이언트 초기화 (문서와 동일!)
+# 2. 신형 SDK 클라이언트 초기화 (자동으로 .env의 GEMINI_API_KEY 사용)
 client = genai.Client()
 
-def test_nano_banana_inpainting():
-    print("🚀 [최신 SDK] 나노 바나나 2 (Gemini 3.1 Flash Image) 엔진 가동!")
+app = FastAPI(title="MakeAWish-AI Real-time Inpainting Server")
 
-    # 3. 로컬 이미지 로드
+# 프론트엔드와 약속한 데이터 형식
+
+
+class InpaintRequest(BaseModel):
+    image_b64: str  # 원본 이미지 (data:image/png;base64,...)
+    mask_b64: str   # 마스크 이미지 (data:image/png;base64,...)
+    prompt: str     # 사용자 요청
+
+# Base64 문자열을 PIL 이미지로 바꾸는 헬퍼 함수
+
+
+def b64_to_pil(b64_str):
+    if "base64," in b64_str:
+        b64_str = b64_str.split("base64,")[1]
+    img_data = base64.b64decode(b64_str)
+    return Image.open(io.BytesIO(img_data))
+
+# PIL 이미지를 다시 Base64로 바꾸는 헬퍼 함수
+
+
+def pil_to_b64(img):
+    buffered = io.BytesIO()
+    img.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+
+@app.post("/api/inpaint")
+async def generate_cake(request: InpaintRequest):
+    print(f"📥 요청 수신: {request.prompt}")
+
     try:
-        original_image = Image.open("original.png")
-        mask_image = Image.open("mask.png")
-        print("✅ 원본 및 마스크 이미지 로드 성공!")
-    except FileNotFoundError:
-        print("❌ 에러: 'original.png' 또는 'mask.png' 파일이 없습니다!")
-        return
+        # 3. Base64 ➡️ PIL 변환
+        original_img = b64_to_pil(request.image_b64)
+        mask_img = b64_to_pil(request.mask_b64)
 
-    # 4. 프롬프트 엔지니어링 (사장님의 도메인 지식!)
-    user_prompt = "이 부분을 귀여운 남자아이 캐릭터로 변경해줘"
-    magic_prompt = "detailed buttercream icing texture, cute 2d character drawing, pastel color tone, matching the exact original cake decoration style"
-    final_prompt = f"{user_prompt}. {magic_prompt}"
-
-    print("📡 나노 바나나 2 모델로 데이터 전송 중... ")
-
-    # 5. 문서에 나온 방식대로 generate_content 호출
-    try:
-        response = client.models.generate_content(
-            model="gemini-3.1-flash-image-preview",
-            contents=[
-                final_prompt,
-                original_image,
-                mask_image
-            ]
+        # 4. 화풍 보존을 위한 시스템 프롬프트 합성
+        final_prompt = (
+            f"User Request: {request.prompt}. "
+            "Instruction: You are an expert cake decorator. "
+            "Edit ONLY the masked area. "
+            "Keep the buttercream icing texture and pastel art style "
+            "perfectly identical to the original cake."
         )
 
-        print("🎉 API 호출 성공! 이미지 추출 중...")
-        
-        # 6. 문서에 나온 방식대로 응답에서 이미지(inline_data)를 꺼내서 저장
-        for i, part in enumerate(response.parts):
+        # 5. 제미나이 3.1 플래시 호출 (나노 바나나 2)
+        response = client.models.generate_content(
+            model="gemini-3.1-flash-image-preview",
+            contents=[final_prompt, original_img, mask_img]
+        )
+
+        # 6. 결과물 처리
+        for part in response.parts:
             if part.inline_data is not None:
-                image = part.as_image()
-                filename = f"final_cake_result_{i}.png"
-                image.save(filename)
-                print(f"👉 대성공! 완성된 이미지가 저장되었습니다: {filename}")
-            elif part.text is not None:
-                print("💡 제미나이의 코멘트:", part.text)
+                # inline_data를 그대로 보내 이미지 객체 save 호환성 이슈를 피한다.
+                result_b64 = base64.b64encode(
+                    part.inline_data.data
+                ).decode("utf-8")
+                mime_type = part.inline_data.mime_type or "image/png"
+
+                print("✅ 인페인팅 성공! 결과를 반환합니다.")
+                return {
+                    "result_image": f"data:{mime_type};base64,{result_b64}"
+                }
+
+        raise HTTPException(status_code=500, detail="이미지 생성 실패")
 
     except Exception as e:
-        print(f"❌ API 호출 실패: {e}")
+        print(f"❌ 서버 에러: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-if __name__ == "__main__":
-    test_nano_banana_inpainting()
+
+@app.get("/")
+async def health():
+    return {"status": "alive", "engine": "Gemini 3.1 Flash Image"}
