@@ -17,19 +17,32 @@ def run_test():
     print("🎨 프론트엔드 시뮬레이션 시작...")
 
     # 2. 로컬에 있는 이미지 읽어서 Base64로 자동 변환
+    # (이미지 경로를 현재 프로젝트 구조에 맞게 유연하게 설정하세요)
+    ORIGINAL_PATH = "original.png"
+    MASK_PATH = "mask.png"
+    REFERENCE_PATH = "reference.png"  # 이 파일이 있으면 참고 이미지로 전송됩니다.
+
     try:
-        img_b64 = image_to_b64("original.png")
-        mask_b64 = image_to_b64("mask.png")
+        img_b64 = image_to_b64(ORIGINAL_PATH)
+        mask_b64 = image_to_b64(MASK_PATH)
     except FileNotFoundError:
-        print("❌ 에러: original.png와 mask.png 파일이 폴더에 있어야 합니다!")
+        print(f"❌ 에러: {ORIGINAL_PATH}와 {MASK_PATH} 파일이 있어야 합니다!")
         return
 
     # 3. 서버에 보낼 데이터 (JSON)
     payload = {
         "image_b64": f"data:image/png;base64,{img_b64}",
         "mask_b64": f"data:image/png;base64,{mask_b64}",
-        "prompt": "안경을 낀 남자 모습으로 바꿔줘"
+        "prompt": "이 사진의 인물과 닮게 케이크 위에 그려줘."
     }
+
+    # 참고 이미지가 있다면 추가
+    if os.path.exists(REFERENCE_PATH):
+        print(f"📸 참고 이미지({REFERENCE_PATH})를 발견했습니다. 함께 전송합니다.")
+        ref_b64 = image_to_b64(REFERENCE_PATH)
+        payload["reference_image_b64"] = f"data:image/png;base64,{ref_b64}"
+    else:
+        print("ℹ️ 참고 이미지(reference.png)가 없어 일반 인페인팅을 진행합니다.")
 
     print("📡 서버로 요청 보내는 중... (제미나이가 열심히 그리는 중)")
 
