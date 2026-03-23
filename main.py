@@ -9,23 +9,22 @@ from dotenv import load_dotenv
 # 1. 환경 변수 로드
 load_dotenv()
 
-# 2. 신형 SDK 클라이언트 초기화 (자동으로 .env의 GEMINI_API_KEY 사용)
+# 2. SDK 클라이언트 초기화 (자동으로 .env의 GEMINI_API_KEY 사용)
 client = genai.Client()
 
 app = FastAPI(title="MakeAWish-AI Real-time Inpainting Server")
 
-# 프론트엔드와 약속한 데이터 형식
-
-
-class InpaintRequest(BaseModel):
+# 데이터 형식
+class InpaintRequest(BaseModel):  # noqa
     image_b64: str            # 원본 이미지 (data:image/png;base64,...)
     mask_b64: str             # 마스크 이미지 (data:image/png;base64,...)
     prompt: str               # 사용자 요청
     reference_image_b64: str = None  # (선택) 참고할 사진 (인물, 캐릭터 등)
 
 # Base64 문자열을 PIL 이미지로 바꾸는 헬퍼 함수
-def b64_to_pil(b64_str):
-    if not b64_str: return None
+def b64_to_pil(b64_str): # noqa
+    if not b64_str:
+        return None
     if "base64," in b64_str:
         b64_str = b64_str.split("base64,")[1]
     img_data = base64.b64decode(b64_str)
