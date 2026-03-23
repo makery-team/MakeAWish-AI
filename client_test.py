@@ -18,9 +18,9 @@ def run_test():
 
     # 2. 로컬에 있는 이미지 읽어서 Base64로 자동 변환
     # (이미지 경로를 현재 프로젝트 구조에 맞게 유연하게 설정하세요)
-    ORIGINAL_PATH = "original.png"
-    MASK_PATH = "mask.png"
-    REFERENCE_PATH = "reference.png"  # 이 파일이 있으면 참고 이미지로 전송됩니다.
+    ORIGINAL_PATH = "img/original.png"
+    MASK_PATH = "img/mask.png"
+    REFERENCE_PATH = "img/reference.png"  # 이 파일이 있으면 참고 이미지로 전송됩니다.
 
     try:
         img_b64 = image_to_b64(ORIGINAL_PATH)
