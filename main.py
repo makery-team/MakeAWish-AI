@@ -2,6 +2,7 @@ import base64
 import io
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+# Gemini API 호출용 Python SDK
 from google import genai
 from PIL import Image
 from dotenv import load_dotenv
@@ -15,6 +16,8 @@ client = genai.Client()
 app = FastAPI(title="MakeAWish-AI Real-time Inpainting Server")
 
 # 데이터 형식
+
+
 class InpaintRequest(BaseModel):  # noqa
     image_b64: str            # 원본 이미지 (data:image/png;base64,...)
     mask_b64: str             # 마스크 이미지 (data:image/png;base64,...)
@@ -22,7 +25,9 @@ class InpaintRequest(BaseModel):  # noqa
     reference_image_b64: str = None  # (선택) 참고할 사진 (인물, 캐릭터 등)
 
 # Base64 문자열을 PIL 이미지로 바꾸는 헬퍼 함수
-def b64_to_pil(b64_str): # noqa
+
+
+def b64_to_pil(b64_str):  # noqa
     if not b64_str:
         return None
     if "base64," in b64_str:
