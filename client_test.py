@@ -33,7 +33,7 @@ def run_test():
     payload = {
         "image_b64": f"data:image/png;base64,{img_b64}",
         "mask_b64": f"data:image/png;base64,{mask_b64}",
-        "prompt": "레터링을 \"민경하 교수님 집 보내주세요\"로 바꿔줘"
+        "prompt": "얼굴을 첨부한 사진의 사람과 비슷하게 바꿔줘"
     }
 
     # 참고 이미지가 있다면 추가
