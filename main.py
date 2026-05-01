@@ -13,7 +13,7 @@ load_dotenv()
 # 2. SDK 클라이언트 초기화 (자동으로 .env의 GEMINI_API_KEY 사용)
 client = genai.Client()
 
-app = FastAPI(title="MakeAWish-AI Real-time Inpainting Server")
+app = FastAPI(title="MakeAWish-AI Server")
 
 # 데이터 형식
 
@@ -24,9 +24,18 @@ class InpaintRequest(BaseModel):  # noqa
     prompt: str               # 사용자 요청
     reference_image_b64: str = None  # (선택) 참고할 사진 (인물, 캐릭터 등)
 
+
+class TagRequest(BaseModel):
+    query: str                # 사용자의 검색 질문
+
+
+class OrderFillRequest(BaseModel):
+    schema_json: dict         # 가게의 주문서 양식 (JSON)
+    messages: list            # 지금까지의 대화 내역
+    current_message: str      # 현재 사용자의 메시지
+
+
 # Base64 문자열을 PIL 이미지로 바꾸는 헬퍼 함수
-
-
 def b64_to_pil(b64_str):  # noqa
     if not b64_str:
         return None
@@ -41,6 +50,66 @@ def pil_to_b64(img):
     buffered = io.BytesIO()
     img.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+
+@app.post("/api/ai/tags")
+async def extract_tags(request: TagRequest):
+    """
+    사용자의 검색 쿼리에서 DB 검색용 태그를 추출합니다.
+    """
+    print(f"🔍 태그 추출 요청: {request.query}")
+    try:
+        system_prompt = (
+            "You are a helpful assistant for a custom cake shop. "
+            "Extract search keywords (tags) from the user's query for database searching. "
+            "The tags should include colors, occasions (birthday, anniversary, etc.), "
+            "styles (cute, elegant, etc.), and target recipients (mom, friend, child, etc.). "
+            "Return the tags as a JSON list of strings. "
+            "Example Output: ['red', 'birthday', 'mother', 'fancy']"
+        )
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",  # 텍스트 분석에 최적화된 모델 사용
+            contents=[system_prompt, request.query],
+            config={
+                "response_mime_type": "application/json"
+            }
+        )
+        return {"tags": response.text}
+    except Exception as e:
+        print(f"❌ 태그 추출 에러: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/ai/order-filling")
+async def fill_order_slots(request: OrderFillRequest):
+    """
+    주문서 양식과 대화 내용을 바탕으로 정보를 추출하고 다음 질문을 생성합니다.
+    """
+    print(f"💬 주문 슬롯 필링 요청: {request.current_message}")
+    try:
+        system_prompt = (
+            f"You are a professional cake shop clerk. Your goal is to fill out the following order schema: {request.schema_json}. "
+            "Based on the conversation history and the current user message, identify any missing information in the schema. "
+            "If information is provided, extract it into the 'extracted_slots' field. "
+            "Then, generate the 'next_question' to ask the user for the next missing information in a natural, friendly tone. "
+            "If all information is collected, set 'status' to 'COMPLETED'. Otherwise, set it to 'IN_PROGRESS'. "
+            "Return the result as a JSON object with 'extracted_slots', 'next_question', and 'status' fields."
+        )
+
+        history = "\n".join([f"{m.get('role')}: {m.get('content')}" for m in request.messages])
+        user_input = f"History: {history}\nUser: {request.current_message}"
+
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[system_prompt, user_input],
+            config={
+                "response_mime_type": "application/json"
+            }
+        )
+        return response.text
+    except Exception as e:
+        print(f"❌ 슬롯 필링 에러: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/inpaint")
