@@ -2,59 +2,70 @@
 
 ## 1. 프로젝트 개요
 
-* **목표**: 원본 케이크 이미지, 마스크 이미지, 자연어 프롬프트를 결합하여 케이크의 특정 부분을 자연스럽게 수정하는 인페인팅 기능 구현.
-* **핵심 가치**: 수작업 화풍 및 레터링 질감을 그대로 유지하는 고퀄리티 합성물 생성.
+* **목표**: 원본 케이크 이미지와 자연어를 결합한 인페인팅 기능 및 대화형 주문 자동화 시스템 구축.
+* **핵심 가치**: 수작업 화풍 보존 기술과 AI 점원을 통한 끊김 없는(Seamless) 커스텀 케이크 주문 경험 제공.
 
-## 2. 기술 스택 (Final Stack)
+## 2. 기술 스택 (System Architecture)
 
-* **Backend Framework**: FastAPI (Uvicorn)
-* **AI Engine**: Google Gemini 3.1 Flash Image (코드명: 나노 바나나 2)
-* **Client Library**: `google-genai` (신형 SDK 1.0+)
-* **Monitoring & Tracing**: LangSmith (`@traceable`)
-* **Environment Management**: `python-dotenv` (.env)
+### 🧩 3-Tier 분리 아키텍처
+
+* **Frontend**: React Native (TypeScript) - 멀티 엔트리 홈 화면 및 공통 AI 캔버스 에디터.
+* **Backend (Orchestrator)**: Spring Boot (Java) - 비즈니스 로직, 데이터베이스(JPA), AI 서비스 연동.
+* **AI Server (Brain)**: FastAPI (Python) - Gemini 기반 이미지 생성 및 자연어 분석.
+
+### 🛠 파트별 상세 스택
+
+* **AI Engine**: Google Gemini 2.0 Flash (NLU) & 3.1 Flash Image (Inpainting)
+* **API Framework**: FastAPI, Spring Boot
+* **Database**: PostgreSQL (JSONB 활용), AWS S3 (이미지 저장)
+* **Monitoring**: LangSmith (AI 추적)
 
 ## 3. 프로젝트 배경 및 히스토리 (The Journey)
 
 | 단계 | 시도 내용 | 결과 및 한계 (Pain Point) |
 | :--- | :--- | :--- |
-| **기존** | SD 1.5 + ControlNet + IP-Adapter | 화풍 보존은 성공했으나, **이미지 퀄리티 저하 및 깨짐 현상** 발생. |
-| **1차 수정** | LLM(프롬프트 생성) + LangSmith 모니터링 | 자연어 이해도는 높였으나, **프롬프트와 ControlNet의 충돌**로 화풍 붕괴. |
-| **2차 수정** | SDXL 모델 교체 + Diffusers 라이브러리 | 로컬(RTX 4060) 구동 시 **장당 6~7분 소요**, 상용화 불가능한 속도와 처참한 결과물. |
-| **3차 수정** | **상용 API (Gemini 3.1 Flash) 도입** | 갤럭시 AI 등 대기업 사례 분석 후 결단. **속도, 퀄리티, 비용 효율성 모두 확보.** |
+| **기존** | SD 1.5 + ControlNet | 화풍 보존은 성공했으나, **이미지 퀄리티 저하** 발생. |
+| **1차 수정** | 로컬 GPU(RTX 4060) 기반 생성 | 장당 **6~7분 소요**, 실서비스 불가능한 속도. |
+| **2차 수정** | **상용 API (Gemini) 도입** | **속도(3~5초), 퀄리티, 비용 효율성 모두 확보.** |
+| **현재** | **3-Tier 분리 및 대화형 로직** | 단순 이미지 생성을 넘어 **대화형 커머스(Conversational Commerce)**로 확장. |
 
-### SDK 마이그레이션 (구형 → 신형)
+## 4. 핵심 기능 (Key Features)
 
-* **이슈**: 구형 `google-generativeai` 사용 시 `404 Not Found` 또는 모델 경로 오류 발생.
-* **해결**: 최신 문법을 지원하는 신형 SDK `google-genai`로 마이그레이션 완료. (`client = genai.Client()` 구조 도입)
+### 🔍 대화형 케이크 탐색 (AI Discovery)
 
-### 쿼터(Quota) 및 과금 체계 확보
+- 사용자의 자연어 입력("엄마 생신에 어울리는 빨간 케이크")에서 핵심 태그를 추출하여 DB 검색 연동.
+* **Endpoint**: `POST /api/ai/tags`
 
-* **이슈**: 무료 티어 사용 시 `429 RESOURCE_EXHAUSTED` (Limit: 0) 에러로 사용 불가.
-* **해결**: 결제 수단 등록을 통해 **Tier 1(Paid)** 등급으로 업그레이드. Google Cloud 300달러(약 42만 원) 무료 크레딧을 방패막이로 확보하여 과금 부담 없이 고성능 모델 권한 획득.
+### 🎨 공통 AI 캔버스 에디터 (Centralized Editor)
 
-### 핵심 프롬프트 엔지니어링 전략
+- 홈 화면, 채팅 리스트 등 어디서든 진입 가능한 통합 이미지 수정 인터페이스.
+* 브러시 마스킹과 자연어 프롬프트를 결합한 정밀 수정 지원.
+* **Endpoint**: `POST /api/inpaint`
 
-케이크 인페인팅의 퀄리티를 결정짓는 핵심 시스템 지시어(System Prompt)를 다음과 같이 고정했습니다.
-> "You are an expert custom cake decorator AI. Edit ONLY the masked area. CRITICAL: You MUST maintain the exact detailed buttercream icing texture, pastel color tone, and cake decoration style of the original image."
+### 💬 슬롯 필링 기반 주문 자동화 (AI Slot-Filling)
 
-## 4. 실행 및 테스트 가이드
+- AI 점원이 가게별로 상이한 주문서 양식(Schema)을 파악하여 부족한 정보를 대화로 수집.
+* 텍스트 대화만으로 최종 주문 JSON 데이터 완성.
+* **Endpoint**: `POST /api/ai/order-filling`
 
-### 서버 실행 (Backend)
+## 5. 실행 및 테스트 가이드
+
+### AI 서버 실행 (FastAPI)
 
 ```bash
 uvicorn main:app --reload
 ```
 
-### 테스트 방법 (Client Simulation)
+### 아키텍처 및 상세 작업 가이드
 
-1. `img/original1.png` (원본), `img/mask1.png` (마스크) 준비.
-2. (선택사항) 참고하고 싶은 이미지(`reference.png`)를 루트 폴더에 준비.
-3. `client_test.py` 실행하여 JSON 데이터 통신 확인.
-4. 결과물 `server_result.png` 자동 생성 및 화풍 유지 여부 검토.
+- 상세 시퀀스 다이어그램 및 파트별 상세 Task는 [CONVERSATIONAL_ORDER_FLOW.md](./documents/CONVERSATIONAL_ORDER_FLOW.md) 참조.
 
-## 4. 최종 결과물 및 성능 지표
+## 6. 최종 성능 지표
 
 * **생성 속도**: 로컬 7분 ➡️ **API 기반 약 3~5초 (약 100배 개선)**
-* **이미지 품질**: 저해상도 깨짐 현상 해결, 원본 케이크의 파스텔톤 및 크림 질감 99% 일치.
-* **멀티모달 지원**: 참고 사진(`reference`) 속 인물이나 사물의 특징을 케이크의 화풍에 맞춰 자연스럽게 합성 가능.
-* **자연어 대응**: \"안경 낀 남자 모습으로 바꿔줘\" 등 복잡한 요청도 맥락에 맞게 정확히 합성.
+* **이미지 품질**: 원본 케이크의 파스텔톤 및 크림 질감 99% 일치.
+* **확장성**: 3-Tier 분리를 통해 서버별 독립적 확장(Scalability) 가능.
+* **자동화**: AI 점원을 통한 주문 누락 방지 및 주문서 작성 시간 단축.
+
+---
+*최종 업데이트: 2026-05-01*
