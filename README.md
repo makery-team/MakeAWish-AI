@@ -33,18 +33,21 @@
 
 ### 🔍 대화형 케이크 탐색 (AI Discovery)
 
-- 사용자의 자연어 입력("엄마 생신에 어울리는 빨간 케이크")에서 핵심 태그를 추출하여 DB 검색 연동.
+* 사용자의 자연어 입력("엄마 생신에 어울리는 빨간 케이크")에서 핵심 태그를 추출하여 DB 검색 연동.
+
 * **Endpoint**: `POST /api/ai/tags`
 
 ### 🎨 공통 AI 캔버스 에디터 (Centralized Editor)
 
-- 홈 화면, 채팅 리스트 등 어디서든 진입 가능한 통합 이미지 수정 인터페이스.
+* 홈 화면, 채팅 리스트 등 어디서든 진입 가능한 통합 이미지 수정 인터페이스.
+
 * 브러시 마스킹과 자연어 프롬프트를 결합한 정밀 수정 지원.
 * **Endpoint**: `POST /api/inpaint`
 
 ### 💬 슬롯 필링 기반 주문 자동화 (AI Slot-Filling)
 
-- AI 점원이 가게별로 상이한 주문서 양식(Schema)을 파악하여 부족한 정보를 대화로 수집.
+* AI 점원이 가게별로 상이한 주문서 양식(Schema)을 파악하여 부족한 정보를 대화로 수집.
+
 * 텍스트 대화만으로 최종 주문 JSON 데이터 완성.
 * **Endpoint**: `POST /api/ai/order-filling`
 
@@ -58,7 +61,7 @@ uvicorn main:app --reload
 
 ### 아키텍처 및 상세 작업 가이드
 
-- 상세 시퀀스 다이어그램 및 파트별 상세 Task는 [CONVERSATIONAL_ORDER_FLOW.md](./documents/CONVERSATIONAL_ORDER_FLOW.md) 참조.
+* 상세 시퀀스 다이어그램 및 파트별 상세 Task는 [CONVERSATIONAL_ORDER_FLOW.md](./documents/CONVERSATIONAL_ORDER_FLOW.md) 참조.
 
 ## 6. 최종 성능 지표
 
