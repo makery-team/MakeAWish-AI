@@ -1,5 +1,6 @@
 import base64
 import io
+import json
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 # Gemini API 호출용 Python SDK
@@ -74,7 +75,9 @@ async def extract_tags(request: TagRequest):
                 "response_mime_type": "application/json"
             }
         )
-        return {"tags": response.text}
+        # JSON 문자열을 파이썬 객체로 변환하여 반환 (FastAPI가 다시 JSON으로 변환)
+        tags = json.loads(response.text)
+        return {"tags": tags}
     except Exception as e:
         print(f"❌ 태그 추출 에러: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -106,13 +109,14 @@ async def fill_order_slots(request: OrderFillRequest):
                 "response_mime_type": "application/json"
             }
         )
-        return response.text
+        # JSON 문자열을 파이썬 객체로 변환하여 반환
+        return json.loads(response.text)
     except Exception as e:
         print(f"❌ 슬롯 필링 에러: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/inpaint")
+@app.post("/api/ai/inpaint")
 async def generate_cake(request: InpaintRequest):
     print(f"📥 요청 수신: {request.prompt}")
 

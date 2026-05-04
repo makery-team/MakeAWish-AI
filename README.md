@@ -40,24 +40,34 @@
 ### 🎨 공통 AI 캔버스 에디터 (Centralized Editor)
 
 * 홈 화면, 채팅 리스트 등 어디서든 진입 가능한 통합 이미지 수정 인터페이스.
-
 * 브러시 마스킹과 자연어 프롬프트를 결합한 정밀 수정 지원.
-* **Endpoint**: `POST /api/inpaint`
+* **Endpoint**: `POST /api/ai/inpaint`
 
 ### 💬 슬롯 필링 기반 주문 자동화 (AI Slot-Filling)
 
 * AI 점원이 가게별로 상이한 주문서 양식(Schema)을 파악하여 부족한 정보를 대화로 수집.
-
 * 텍스트 대화만으로 최종 주문 JSON 데이터 완성.
 * **Endpoint**: `POST /api/ai/order-filling`
 
 ## 5. 실행 및 테스트 가이드
 
-### AI 서버 실행 (FastAPI)
+### AI 서버 설정 및 실행 (FastAPI)
 
-```bash
-uvicorn main:app --reload
-```
+1. **의존성 설치**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **환경 변수 설정**:
+   * `.env.example` 파일을 복사하여 `.env` 파일을 생성하고 `GEMINI_API_KEY`를 입력합니다.
+
+3. **서버 실행**:
+   ```bash
+   uvicorn main:app --reload
+   ```
+
+4. **API 명세**:
+   * 상세 API 규격은 [AI_SERVER_API_SPEC.md](./documents/AI_SERVER_API_SPEC.md)를 참조하세요.
 
 ### 아키텍처 및 상세 작업 가이드
 
