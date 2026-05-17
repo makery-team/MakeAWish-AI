@@ -15,7 +15,7 @@
 
 ### 🛠 파트별 상세 스택
 
-* **AI Engine**: Google Gemini 2.0 Flash (NLU) & 3.1 Flash Image (Inpainting)
+* **AI Engine**: Google Gemini 3.1 Flash Lite (NLU) & 3.1 Flash Image (Inpainting) (2026 Preview Edition)
 * **API Framework**: FastAPI, Spring Boot
 * **Database**: PostgreSQL (JSONB 활용), AWS S3 (이미지 저장)
 * **Monitoring**: LangSmith (AI 추적)
@@ -27,27 +27,22 @@
 | **기존** | SD 1.5 + ControlNet | 화풍 보존은 성공했으나, **이미지 퀄리티 저하** 발생. |
 | **1차 수정** | 로컬 GPU(RTX 4060) 기반 생성 | 장당 **6~7분 소요**, 실서비스 불가능한 속도. |
 | **2차 수정** | **상용 API (Gemini) 도입** | **속도(3~5초), 퀄리티, 비용 효율성 모두 확보.** |
-| **현재** | **3-Tier 분리 및 대화형 로직** | 단순 이미지 생성을 넘어 **대화형 커머스(Conversational Commerce)**로 확장. |
+| **현재** | **통합 API 및 대화형 로직** | 파편화된 API를 `/chat`으로 통합하고 **대화형 커머스**로 확장. |
 
 ## 4. 핵심 기능 (Key Features)
 
-### 🔍 대화형 케이크 탐색 (AI Discovery)
+### 🔍 통합 텍스트 대화 API (`/api/ai/chat`)
 
-* 사용자의 자연어 입력("엄마 생신에 어울리는 빨간 케이크")에서 핵심 태그를 추출하여 DB 검색 연동.
+* 모든 텍스트 기반 인터랙션을 하나의 엔드포인트에서 처리하며, AI가 의도를 분석하여 `actionType`을 결정합니다.
+* **PORTFOLIO_LIST**: 검색 태그 추출 및 디자인 추천.
+* **SHOW_SCHEMA / CONFIRM_SLOTS**: 주문서 양식(Schema) 기반 슬롯 필링.
+* **SIMPLE_CHAT**: 일반 안내 및 안내.
+* **ORDER_SUMMARY**: 최종 주문 검토 (사장님 확인 대기).
 
-* **Endpoint**: `POST /api/ai/tags`
+### 🎨 공통 AI 캔버스 에디터 (`/api/ai/inpaint`)
 
-### 🎨 공통 AI 캔버스 에디터 (Centralized Editor)
-
-* 홈 화면, 채팅 리스트 등 어디서든 진입 가능한 통합 이미지 수정 인터페이스.
 * 브러시 마스킹과 자연어 프롬프트를 결합한 정밀 수정 지원.
-* **Endpoint**: `POST /api/ai/inpaint`
-
-### 💬 슬롯 필링 기반 주문 자동화 (AI Slot-Filling)
-
-* AI 점원이 가게별로 상이한 주문서 양식(Schema)을 파악하여 부족한 정보를 대화로 수집.
-* 텍스트 대화만으로 최종 주문 JSON 데이터 완성.
-* **Endpoint**: `POST /api/ai/order-filling`
+* 기존 케이크의 질감과 화풍을 99% 유지하며 수정 부위만 자연스럽게 합성.
 
 ## 5. 실행 및 테스트 가이드
 
@@ -66,19 +61,26 @@
    uvicorn main:app --reload
    ```
 
-4. **API 명세**:
-   * 상세 API 규격은 [AI_SERVER_API_SPEC.md](./documents/AI_SERVER_API_SPEC.md)를 참조하세요.
+### 🧪 클라이언트 테스트 가이드 (팀원용)
 
-### 아키텍처 및 상세 작업 가이드
+서버가 실행 중인 상태에서 `client_test.py`를 사용하여 전체 기능을 검증할 수 있습니다.
 
-* 상세 시퀀스 다이어그램 및 파트별 상세 Task는 [CONVERSATIONAL_ORDER_FLOW.md](./documents/CONVERSATIONAL_ORDER_FLOW.md) 참조.
+1. **테스트 실행**:
+   ```bash
+   python client_test.py
+   ```
 
-## 6. 최종 성능 지표
+2. **테스트 항목**:
+   * **채팅 통합 테스트**: 인사, 검색, 에디터 진입 의사, 주문 슬롯 필링 등의 시나리오 자동 검증.
+   * **인페인팅 테스트**: `img/original.png`를 수정하여 **`server_result.png`** 결과물 생성.
 
-* **생성 속도**: 로컬 7분 ➡️ **API 기반 약 3~5초 (약 100배 개선)**
-* **이미지 품질**: 원본 케이크의 파스텔톤 및 크림 질감 99% 일치.
-* **확장성**: 3-Tier 분리를 통해 서버별 독립적 확장(Scalability) 가능.
-* **자동화**: AI 점원을 통한 주문 누락 방지 및 주문서 작성 시간 단축.
+3. **결과 확인**:
+   * 터미널의 `✅ 응답 성공` 로그와 `server_result.png` 이미지 파일을 확인하세요.
+
+### 상세 가이드 문서
+
+* **API 명세**: [AI_SERVER_API_SPEC.md](./documents/AI_SERVER_API_SPEC.md)
+* **시퀀스 다이어그램**: [CONVERSATIONAL_ORDER_FLOW.md](./documents/CONVERSATIONAL_ORDER_FLOW.md)
 
 ---
-*최종 업데이트: 2026-05-01*
+*최종 업데이트: 2026-05-07*
