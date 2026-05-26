@@ -16,6 +16,23 @@ client = genai.Client()
 
 app = FastAPI(title="MakeAWish-AI Server")
 
+
+# --- 서버 시작 이벤트 (모델 워밍업) ---
+@app.on_event("startup")
+async def startup_event():
+    """서버 시작 시 모델을 미리 로드하여 첫 요청 시간 단축"""
+    print("🔥 모델 워밍업 시작...")
+    try:
+        # 간단한 테스트 요청으로 모델 로드
+        client.models.generate_content(
+            model="gemini-3.1-flash-lite",
+            contents=["Hello, warmup test"]
+        )
+        print("✅ 모델 워밍업 완료!")
+    except Exception as e:
+        print(f"⚠️ 워밍업 중 에러 (무시됨): {e}")
+
+
 # --- 데이터 모델 정의 ---
 
 

@@ -6,7 +6,23 @@ import json
 
 # 1. 서버 주소
 BASE_URL = "http://127.0.0.1:8000/api/ai"
-REQUEST_TIMEOUT = (10, 180)  # (connect timeout, read timeout)
+REQUEST_TIMEOUT = (30, 300)  # (connect timeout, read timeout)
+MAX_RETRIES = 3
+
+
+def retry_request(method, url, max_retries=MAX_RETRIES, **kwargs):
+    """요청 재시도 로직"""
+    for attempt in range(max_retries):
+        try:
+            if method == "post":
+                return requests.post(url, timeout=REQUEST_TIMEOUT, **kwargs)
+            else:
+                return requests.get(url, timeout=REQUEST_TIMEOUT, **kwargs)
+        except (requests.ConnectionError, requests.Timeout, KeyboardInterrupt) as e:
+            if attempt == max_retries - 1:
+                raise
+            print(f"⚠️ 재시도 {attempt + 1}/{max_retries - 1}...")
+            time.sleep(2)
 
 
 def image_to_b64(path):
@@ -24,7 +40,7 @@ def test_chat(message, schema=None):
     if schema:
         payload["schema_json"] = schema
 
-    response = requests.post(url, json=payload, timeout=REQUEST_TIMEOUT)
+    response = retry_request("post", url, json=payload)
     if response.status_code == 200:
         print(
             f"✅ 응답 성공: {json.dumps(response.json(), indent=2, ensure_ascii=False)}")
@@ -49,11 +65,11 @@ def test_inpaint():
     payload = {
         "image_b64": f"data:image/png;base64,{img_b64}",
         "mask_b64": f"data:image/png;base64,{mask_b64}",
-        "prompt": "중앙에 'Happy'라고 적어줘"
+        "prompt": "중앙에 '안녕하세요'라고 적어줘"
     }
 
     started = time.time()
-    response = requests.post(url, json=payload, timeout=REQUEST_TIMEOUT)
+    response = retry_request("post", url, json=payload)
     elapsed = time.time() - started
 
     if response.status_code == 200:

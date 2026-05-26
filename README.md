@@ -49,6 +49,7 @@
 ### AI 서버 설정 및 실행 (FastAPI)
 
 1. **의존성 설치**:
+
    ```bash
    pip install -r requirements.txt
    ```
@@ -57,6 +58,7 @@
    * `.env.example` 파일을 복사하여 `.env` 파일을 생성하고 `GEMINI_API_KEY`를 입력합니다.
 
 3. **서버 실행**:
+
    ```bash
    uvicorn main:app --reload
    ```
@@ -66,6 +68,7 @@
 서버가 실행 중인 상태에서 `client_test.py`를 사용하여 전체 기능을 검증할 수 있습니다.
 
 1. **테스트 실행**:
+
    ```bash
    python client_test.py
    ```
