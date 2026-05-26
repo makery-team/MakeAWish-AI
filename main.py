@@ -11,6 +11,9 @@ from dotenv import load_dotenv
 # 1. 환경 변수 로드 (.env 파일에 GEMINI_API_KEY가 있어야 함)
 load_dotenv()
 
+CHAT_MODEL = "gemini-3.5-flash"
+IMAGE_MODEL = "gemini-3.1-flash-image-preview"
+
 # 2. SDK 클라이언트 초기화
 client = genai.Client()
 
@@ -25,7 +28,7 @@ async def startup_event():
     try:
         # 간단한 테스트 요청으로 모델 로드
         client.models.generate_content(
-            model="gemini-3.1-flash-lite",
+            model=CHAT_MODEL,
             contents=["Hello, warmup test"]
         )
         print("✅ 모델 워밍업 완료!")
@@ -119,9 +122,9 @@ async def chat_handler(request: ChatRequest):
             [f"{m.get('role')}: {m.get('content')}" for m in request.messages])
         user_input = f"--- 이전 대화 내역 ---\n{history}\n\n--- 사용자의 현재 메시지 ---\n{request.current_message}"
 
-        # 최신 Gemini 모델 호출 (텍스트 분석에 최적화된 Lite 모델 사용)
+        # 최신 Gemini 모델 호출
         response = client.models.generate_content(
-            model="gemini-3.1-flash-lite-preview",
+            model=CHAT_MODEL,
             contents=[system_prompt, user_input],
             config={
                 "response_mime_type": "application/json"
@@ -160,7 +163,7 @@ async def generate_cake(request: InpaintRequest):
                 "실사 사진처럼 만들지 말고, 케이크 크림으로 그린 듯한 느낌을 주어야 합니다."
             )
             contents = [final_prompt, original_img,
-                        mask_img, reference_image_b64]
+                        mask_img, reference_img]
         else:
             final_prompt = (
                 f"User Request: {request.prompt}. "
@@ -172,7 +175,7 @@ async def generate_cake(request: InpaintRequest):
 
         # 이미지 생성 전용 모델 호출
         response = client.models.generate_content(
-            model="gemini-3.1-flash-image-preview",
+            model=IMAGE_MODEL,
             contents=contents
         )
 
@@ -200,4 +203,4 @@ async def generate_cake(request: InpaintRequest):
 @app.get("/")
 async def health():
     """서버 상태 확인용"""
-    return {"status": "alive", "engine": "Gemini 3.1 Flash (2026 Edition)"}
+    return {"status": "alive", "engine": CHAT_MODEL, "image_engine": IMAGE_MODEL}
