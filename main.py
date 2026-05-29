@@ -1,6 +1,7 @@
 import base64
 import io
 import json
+import requests
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 # Gemini API 호출용 Python SDK
@@ -41,10 +42,19 @@ async def startup_event():
 
 class InpaintRequest(BaseModel):
     """이미지 편집(인페인팅) 요청 데이터 모델"""
-    image_b64: str            # 원본 이미지 (Base64)
-    mask_b64: str             # 편집할 영역을 표시한 마스크 이미지 (Base64)
     prompt: str               # 편집 요청 사항 (예: "여기에 하트 그려줘")
-    reference_image_b64: str = None  # (선택) 참고용 이미지 (Base64)
+    
+    # 원본 이미지 (URL 우선, 없으면 Base64)
+    image_url: str = None
+    image_b64: str = None
+    
+    # 마스크 이미지 (URL 우선, 없으면 Base64)
+    mask_url: str = None
+    mask_b64: str = None
+    
+    # 참고용 이미지 (URL 우선, 없으면 Base64)
+    reference_image_url: str = None
+    reference_image_b64: str = None
 
 
 class ChatRequest(BaseModel):
@@ -55,6 +65,20 @@ class ChatRequest(BaseModel):
 
 
 # --- 헬퍼 함수 ---
+
+def load_image(url: str = None, b64_str: str = None):
+    """URL 또는 Base64 문자열로부터 PIL 이미지 객체를 생성합니다."""
+    if url:
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            return Image.open(io.BytesIO(response.content))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"이미지 URL 로드 실패: {e}")
+    elif b64_str:
+        return b64_to_pil(b64_str)
+    return None
+
 
 def b64_to_pil(b64_str):
     """Base64 문자열을 PIL 이미지 객체로 변환"""
@@ -147,10 +171,13 @@ async def generate_cake(request: InpaintRequest):
     print(f"🎨 이미지 편집 요청 수신: {request.prompt}")
 
     try:
-        # Base64 데이터를 이미지 객체로 변환
-        original_img = b64_to_pil(request.image_b64)
-        mask_img = b64_to_pil(request.mask_b64)
-        reference_img = b64_to_pil(request.reference_image_b64)
+        # URL 또는 Base64 데이터를 이미지 객체로 변환
+        original_img = load_image(url=request.image_url, b64_str=request.image_b64)
+        mask_img = load_image(url=request.mask_url, b64_str=request.mask_b64)
+        reference_img = load_image(url=request.reference_image_url, b64_str=request.reference_image_b64)
+
+        if not original_img or not mask_img:
+            raise HTTPException(status_code=400, detail="원본 이미지와 마스크 이미지는 필수입니다 (URL 또는 Base64 제공 필요).")
 
         # 참고 사진 유무에 따른 프롬프트 구성
         if reference_img:
