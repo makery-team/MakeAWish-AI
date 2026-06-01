@@ -2,7 +2,11 @@ import base64
 import io
 import json
 import requests
-from fastapi import FastAPI, HTTPException
+import boto3
+import uuid
+import os
+import httpx
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 # Gemini API 호출용 Python SDK
 from google import genai
@@ -42,6 +46,7 @@ async def startup_event():
 
 class InpaintRequest(BaseModel):
     """이미지 편집(인페인팅) 요청 데이터 모델"""
+    task_id: int              # 백엔드 작업 식별 ID
     prompt: str               # 편집 요청 사항 (예: "여기에 하트 그려줘")
     
     # 원본 이미지 (URL 우선, 없으면 Base64)
@@ -62,6 +67,88 @@ class ChatRequest(BaseModel):
     messages: list            # 이전 대화 내역 [{role: "user", content: "..."}, ...]
     current_message: str      # 현재 사용자가 보낸 메시지
     schema_json: dict = None  # (선택) 가게별 주문서 양식 (슬롯 필링용)
+
+
+# --- S3 및 웹훅 설정 ---
+
+s3_client = boto3.client('s3')
+
+def upload_to_s3(img_bytes: bytes, content_type: str = "image/png") -> str:
+    """바이트 데이터를 S3에 업로드하고 퍼블릭 URL을 반환합니다."""
+    S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "makeawish-bucket")
+    file_name = f"ai-generated/{uuid.uuid4().hex}.png"
+    try:
+        s3_client.put_object(
+            Bucket=S3_BUCKET_NAME,
+            Key=file_name,
+            Body=img_bytes,
+            ContentType=content_type
+        )
+        region = os.getenv("AWS_REGION", "ap-northeast-2")
+        return f"https://{S3_BUCKET_NAME}.s3.{region}.amazonaws.com/{file_name}"
+    except Exception as e:
+        print(f"❌ S3 업로드 에러: {e}")
+        raise e
+
+async def process_and_send_webhook(task_id: int, request: InpaintRequest):
+    """실제 이미지 생성 로직을 백그라운드에서 처리하고 웹훅으로 결과를 전송합니다."""
+    webhook_url = os.getenv("WEBHOOK_URL", "http://localhost:8080/api/ai-agent/webhook/inpaint")
+    try:
+        # URL 또는 Base64 데이터를 이미지 객체로 변환
+        original_img = load_image(url=request.image_url, b64_str=request.image_b64)
+        mask_img = load_image(url=request.mask_url, b64_str=request.mask_b64)
+        reference_img = load_image(url=request.reference_image_url, b64_str=request.reference_image_b64)
+
+        if not original_img or not mask_img:
+            raise ValueError("원본 이미지와 마스크 이미지는 필수입니다.")
+
+        if reference_img:
+            final_prompt = (
+                f"User Request: {request.prompt}. "
+                "Instruction: 당신은 숙련된 케이크 데코레이터입니다. "
+                "마스크된 영역(masked area)만 수정하세요. "
+                "참고 사진(Reference Image)에 있는 인물이나 캐릭터를 마스크 영역에 그리세요. "
+                "중요: 기존 케이크의 질감(버터크림 아이싱), 화풍, 파스텔 톤 색감을 완벽하게 유지해야 합니다. "
+                "실사 사진처럼 만들지 말고, 케이크 크림으로 그린 듯한 느낌을 주어야 합니다."
+            )
+            contents = [final_prompt, original_img, mask_img, reference_img]
+        else:
+            final_prompt = (
+                f"User Request: {request.prompt}. "
+                "Instruction: 당신은 숙련된 케이크 데코레이터입니다. "
+                "마스크된 영역만 수정하세요. "
+                "기존 케이크의 크림 질감과 파스텔 아트 스타일을 완벽하게 유지하여 자연스럽게 합성하세요."
+            )
+            contents = [final_prompt, original_img, mask_img]
+
+        # 모델 호출
+        response = client.models.generate_content(model=IMAGE_MODEL, contents=contents)
+
+        result_url = None
+        for part in response.parts:
+            if part.inline_data is not None:
+                print("✅ 이미지 생성 완료, S3 업로드 시작...")
+                result_url = upload_to_s3(part.inline_data.data, part.inline_data.mime_type or "image/png")
+                break
+        
+        if not result_url:
+            raise ValueError("이미지 생성 결과가 없습니다.")
+
+        print("✅ S3 업로드 완료! 웹훅 전송...")
+        payload = {"task_id": task_id, "result_image": result_url, "status": "COMPLETED"}
+        async with httpx.AsyncClient() as http_client:
+            await http_client.post(webhook_url, json=payload)
+            print("✅ 웹훅 전송 성공!")
+
+    except Exception as e:
+        print(f"❌ 작업 에러 발생: {e}")
+        # 실패 웹훅 전송
+        payload = {"task_id": task_id, "result_image": "", "status": "FAILED"}
+        try:
+            async with httpx.AsyncClient() as http_client:
+                await http_client.post(webhook_url, json=payload)
+        except Exception:
+            pass
 
 
 # --- 헬퍼 함수 ---
@@ -162,69 +249,16 @@ async def chat_handler(request: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/ai/inpaint")
-async def generate_cake(request: InpaintRequest):
+@app.post("/api/ai/inpaint", status_code=202)
+async def generate_cake(request: InpaintRequest, background_tasks: BackgroundTasks):
     """
-    [이미지 편집(인페인팅) API]
+    [비동기 이미지 편집(인페인팅) API]
     원본 이미지의 마스킹된 영역을 사용자의 프롬프트에 맞춰 수정합니다.
+    작업은 백그라운드에서 진행되며, 완료 시 백엔드의 웹훅을 호출합니다.
     """
-    print(f"🎨 이미지 편집 요청 수신: {request.prompt}")
-
-    try:
-        # URL 또는 Base64 데이터를 이미지 객체로 변환
-        original_img = load_image(url=request.image_url, b64_str=request.image_b64)
-        mask_img = load_image(url=request.mask_url, b64_str=request.mask_b64)
-        reference_img = load_image(url=request.reference_image_url, b64_str=request.reference_image_b64)
-
-        if not original_img or not mask_img:
-            raise HTTPException(status_code=400, detail="원본 이미지와 마스크 이미지는 필수입니다 (URL 또는 Base64 제공 필요).")
-
-        # 참고 사진 유무에 따른 프롬프트 구성
-        if reference_img:
-            final_prompt = (
-                f"User Request: {request.prompt}. "
-                "Instruction: 당신은 숙련된 케이크 데코레이터입니다. "
-                "마스크된 영역(masked area)만 수정하세요. "
-                "참고 사진(Reference Image)에 있는 인물이나 캐릭터를 마스크 영역에 그리세요. "
-                "중요: 기존 케이크의 질감(버터크림 아이싱), 화풍, 파스텔 톤 색감을 완벽하게 유지해야 합니다. "
-                "실사 사진처럼 만들지 말고, 케이크 크림으로 그린 듯한 느낌을 주어야 합니다."
-            )
-            contents = [final_prompt, original_img,
-                        mask_img, reference_img]
-        else:
-            final_prompt = (
-                f"User Request: {request.prompt}. "
-                "Instruction: 당신은 숙련된 케이크 데코레이터입니다. "
-                "마스크된 영역만 수정하세요. "
-                "기존 케이크의 크림 질감과 파스텔 아트 스타일을 완벽하게 유지하여 자연스럽게 합성하세요."
-            )
-            contents = [final_prompt, original_img, mask_img]
-
-        # 이미지 생성 전용 모델 호출
-        response = client.models.generate_content(
-            model=IMAGE_MODEL,
-            contents=contents
-        )
-
-        # 생성된 결과 이미지(바이너리)를 추출하여 Base64로 반환
-        for part in response.parts:
-            if part.inline_data is not None:
-                result_b64 = base64.b64encode(
-                    part.inline_data.data
-                ).decode("utf-8")
-                mime_type = part.inline_data.mime_type or "image/png"
-
-                print("✅ 이미지 편집 성공!")
-                return {
-                    "actionType": "INPAINTING_RESULT",
-                    "result_image": f"data:{mime_type};base64,{result_b64}"
-                }
-
-        raise HTTPException(status_code=500, detail="이미지 생성에 실패했습니다.")
-
-    except Exception as e:
-        print(f"❌ 이미지 편집 에러: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    print(f"🎨 이미지 편집 요청 수신 (Task ID: {request.task_id}): {request.prompt}")
+    background_tasks.add_task(process_and_send_webhook, request.task_id, request)
+    return {"message": "Processing started", "status": "202 Accepted", "task_id": request.task_id}
 
 
 @app.get("/")
