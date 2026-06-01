@@ -49,7 +49,7 @@ def test_chat(message, schema=None):
 
 
 def test_inpaint():
-    print("\n🎨 인페인팅 테스트 시작...")
+    print("\n🎨 인페인팅 테스트 시작 (비동기 방식)...")
     url = f"{BASE_URL}/inpaint"
 
     ORIGINAL_PATH = "img/original.png"
@@ -59,33 +59,25 @@ def test_inpaint():
         img_b64 = image_to_b64(ORIGINAL_PATH)
         mask_b64 = image_to_b64(MASK_PATH)
     except FileNotFoundError:
-        print(f"❌ 에러: 이미지 파일이 필요합니다.")
+        print(f"❌ 에러: 이미지 파일이 필요합니다. (img 폴더에 original.png, mask.png를 넣어주세요)")
         return
 
+    # 이제 task_id가 필수로 들어갑니다.
     payload = {
+        "task_id": 9999,
         "image_b64": f"data:image/png;base64,{img_b64}",
         "mask_b64": f"data:image/png;base64,{mask_b64}",
         "prompt": "중앙에 '안녕하세요'라고 적어줘"
     }
 
-    started = time.time()
     response = retry_request("post", url, json=payload)
-    elapsed = time.time() - started
 
-    if response.status_code == 200:
-        print(f"✅ 인페인팅 성공! ({elapsed:.1f}s)")
-        result_data = response.json()
-        print(f"결과 actionType: {result_data.get('actionType')}")
-
-        # 이미지 데이터 추출 및 저장
-        img_data_str = result_data.get("result_image")
-        if img_data_str and "," in img_data_str:
-            header, encoded = img_data_str.split(",", 1)
-            with open("server_result.png", "wb") as f:
-                f.write(base64.b64decode(encoded))
-            print("🎉 결과가 'server_result.png'로 저장되었습니다.")
+    if response.status_code == 202:
+        print(f"✅ 인페인팅 백그라운드 작업 접수 성공! (상태 코드: 202)")
+        print(f"응답 데이터: {response.json()}")
+        print("백엔드 서버의 콘솔 로그를 확인해서 웹훅이 정상적으로 도착하는지 확인해 보세요!")
     else:
-        print(f"❌ 인페인팅 실패: {response.text}")
+        print(f"❌ 인페인팅 접수 실패: {response.text}")
 
 
 if __name__ == "__main__":
