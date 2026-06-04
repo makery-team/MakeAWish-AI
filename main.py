@@ -82,7 +82,8 @@ def upload_to_s3(img_bytes: bytes, content_type: str = "image/png") -> str:
             Bucket=S3_BUCKET_NAME,
             Key=file_name,
             Body=img_bytes,
-            ContentType=content_type
+            ContentType=content_type,
+            ACL='public-read'
         )
         region = os.getenv("AWS_REGION", "ap-northeast-2")
         return f"https://{S3_BUCKET_NAME}.s3.{region}.amazonaws.com/{file_name}"
