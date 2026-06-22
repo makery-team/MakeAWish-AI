@@ -193,12 +193,11 @@ async def chat_handler(request: ChatRequest):
     [통합 채팅 API]
     사용자의 메시지를 분석하여 의도(Action)를 분류하고 적절한 응답을 반환합니다.
 
-    1. SIMPLE_CHAT: 일상적인 인사나 단순 질문
+    1. SIMPLE_CHAT: 일상적인 인사나 단순 질문, 혹은 사용자가 이미지 편집/수정을 요구할 때의 안내
     2. PORTFOLIO_LIST: 케이크 검색 및 추천 (태그 추출 포함)
-    3. EDIT_IMAGE: 사용자가 이미지 편집(에디터) 진입을 원할 때
-    4. SHOW_SCHEMA: 주문서 작성 중 추가 정보가 필요할 때
-    5. CONFIRM_SLOTS: 모든 주문 정보 수집 완료 후 확인 단계
-    6. ORDER_SUMMARY: 주문 내역 요약 및 가격 문의
+    3. SHOW_SCHEMA: 주문서 작성 중 추가 정보가 필요할 때
+    4. CONFIRM_SLOTS: 모든 주문 정보 수집 완료 후 확인 단계
+    5. ORDER_SUMMARY: 주문 내역 요약 및 가격 문의
     """
     print(f"💬 통합 채팅 요청 수신: {request.current_message}")
     try:
@@ -207,15 +206,14 @@ async def chat_handler(request: ChatRequest):
             "You are a professional and friendly assistant for a custom cake shop 'MakeAWish'. "
             "Analyze the user's message and current context to determine the most appropriate 'actionType'. "
             "\n\n### Action Types 설명:"
-            "\n1. 'SIMPLE_CHAT': 인사, 단순 질문, 혹은 가벼운 대화"
+            "\n1. 'SIMPLE_CHAT': 인사, 단순 질문, 가벼운 대화. 만약 사용자가 디자인 수정이나 이미지 편집을 요구하면, '사진 위의 [시안 편집하기] 버튼을 눌러 직접 수정해 보세요'라고 안내하세요."
             "\n2. 'PORTFOLIO_LIST': 사용자가 케이크를 찾거나 추천을 요청할 때. 검색 태그를 'data.tags'에 추출하세요."
-            "\n3. 'EDIT_IMAGE': 사용자가 디자인 수정, 이미지 편집, 혹은 에디터 사용 의사를 보일 때"
-            "\n4. 'SHOW_SCHEMA': 주문 진행 중(schema_json 존재 시) 비어있는 항목을 채우기 위해 질문이 필요할 때"
-            "\n5. 'CONFIRM_SLOTS': 모든 필수 주문 정보가 수집되었을 때. 모든 정보를 'data.extracted_slots'에 포함하세요."
-            "\n6. 'ORDER_SUMMARY': When the user asks for the status of their order or price information. Inform them that the shop owner will review the order and provide the final price."
+            "\n3. 'SHOW_SCHEMA': 주문 진행 중(schema_json 존재 시) 비어있는 항목을 채우기 위해 질문이 필요할 때"
+            "\n4. 'CONFIRM_SLOTS': 모든 필수 주문 정보가 수집되었을 때. 모든 정보를 'data.extracted_slots'에 포함하세요."
+            "\n5. 'ORDER_SUMMARY': When the user asks for the status of their order or price information. Inform them that the shop owner will review the order and provide the final price."
             "\n\n### 응답 형식 (반드시 JSON 형식을 지킬 것):"
             "\n{"
-            "\n  'actionType': '위의 6가지 타입 중 하나',"
+            "\n  'actionType': '위의 5가지 타입 중 하나',"
             "\n  'message': '사용자에게 보내는 친절한 한국어 답변',"
             "\n  'data': {"
             "\n    'tags': ['빨강', '생일'] (PORTFOLIO_LIST인 경우만),"
