@@ -209,7 +209,7 @@ async def chat_handler(request: ChatRequest):
             "\n1. 'SIMPLE_CHAT': 인사, 단순 질문, 가벼운 대화. 만약 사용자가 디자인 수정이나 이미지 편집을 요구하면, '사진 위의 [시안 편집하기] 버튼을 눌러 직접 수정해 보세요'라고 안내하세요."
             "\n2. 'PORTFOLIO_LIST': 사용자가 케이크를 찾거나 추천을 요청할 때. 검색 태그를 'data.tags'에 추출하세요."
             "\n3. 'SHOW_SCHEMA': 주문 진행 중(schema_json 존재 시) 비어있는 항목을 채우기 위해 질문이 필요할 때"
-            "\n4. 'CONFIRM_SLOTS': 모든 필수 주문 정보가 수집되었을 때. 모든 정보를 'data.extracted_slots'에 포함하세요."
+            "\n4. 'CONFIRM_SLOTS': 모든 필수 주문 정보가 수집되었을 때. 모든 정보를 'data.extracted_slots'에 포함하세요. (반드시 날짜는 'YYYY-MM-DD', 시간은 'HH:MM' 형식으로 변환할 것)"
             "\n5. 'ORDER_SUMMARY': When the user asks for the status of their order or price information. Inform them that the shop owner will review the order and provide the final price."
             "\n\n### 응답 형식 (반드시 JSON 형식을 지킬 것):"
             "\n{"
