@@ -44,29 +44,31 @@ async def startup_event():
 # --- 데이터 모델 정의 ---
 
 
+from typing import Optional
+
 class InpaintRequest(BaseModel):
     """이미지 편집(인페인팅) 요청 데이터 모델"""
     task_id: int              # 백엔드 작업 식별 ID
     prompt: str               # 편집 요청 사항 (예: "여기에 하트 그려줘")
     
     # 원본 이미지 (URL 우선, 없으면 Base64)
-    image_url: str = None
-    image_b64: str = None
+    image_url: Optional[str] = None
+    image_b64: Optional[str] = None
     
     # 마스크 이미지 (URL 우선, 없으면 Base64)
-    mask_url: str = None
-    mask_b64: str = None
+    mask_url: Optional[str] = None
+    mask_b64: Optional[str] = None
     
     # 참고용 이미지 (URL 우선, 없으면 Base64)
-    reference_image_url: str = None
-    reference_image_b64: str = None
+    reference_image_url: Optional[str] = None
+    reference_image_b64: Optional[str] = None
 
 
 class ChatRequest(BaseModel):
     """통합 채팅 요청 데이터 모델"""
     messages: list            # 이전 대화 내역 [{role: "user", content: "..."}, ...]
     current_message: str      # 현재 사용자가 보낸 메시지
-    schema_json: dict = None  # (선택) 가게별 주문서 양식 (슬롯 필링용)
+    schema_json: Optional[dict] = None  # (선택) 가게별 주문서 양식 (슬롯 필링용)
 
 
 # --- S3 및 웹훅 설정 ---
