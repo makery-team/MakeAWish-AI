@@ -367,6 +367,8 @@ async def recommend_portfolio_tags(request: TagRecommendationRequest):
             recommended_tags=result_json.get("recommended_tags", [])
         )
 
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
         print(f"❌ 태그 추천 처리 중 에러 발생: {e}")
         raise HTTPException(status_code=500, detail=f"태그 추천 처리 실패: {str(e)}")
@@ -420,7 +422,7 @@ async def summarize_reviews(request: ReviewSummaryRequest):
 @app.post("/api/ai/stores/profile-suggest", response_model=StoreProfileSuggestResponse)
 async def suggest_profile_improvement(request: StoreProfileSuggestRequest):
     """
-    1. [(AI) 프로필 개선 제안 API]
+    [(AI) 프로필 개선 제안 API]
     매장의 현재 프로필(소개, 공지사항, 주의사항)을 분석하여 개선점 및 피드백을 제공합니다.
     """
     print(f"💡 프로필 개선 제안 요청 수신 (매장명: {request.storeName})")
@@ -451,6 +453,8 @@ async def suggest_profile_improvement(request: StoreProfileSuggestRequest):
             overallFeedback=result_json.get("overallFeedback", ""),
             suggestions=result_json.get("suggestions", [])
         )
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
         print(f"❌ 프로필 개선 제안 처리 실패: {e}")
         raise HTTPException(status_code=500, detail=f"프로필 개선 제안 처리 실패: {str(e)}")
@@ -459,7 +463,7 @@ async def suggest_profile_improvement(request: StoreProfileSuggestRequest):
 @app.post("/api/ai/stores/generate-bio", response_model=StoreBioGenerateResponse)
 async def generate_store_bio(request: StoreBioGenerateRequest):
     """
-    2. [(AI) 소개글 자동 생성 API]
+    [(AI) 소개글 자동 생성 API]
     매장명, 키워드, 컨셉을 기반으로 매력적인 매장 소개문(Bio)을 자동 작성합니다.
     """
     print(f"✍️ 소개글 자동 생성 요청 수신 (매장명: {request.storeName})")
@@ -487,6 +491,8 @@ async def generate_store_bio(request: StoreBioGenerateRequest):
         return StoreBioGenerateResponse(
             generatedBio=result_json.get("generatedBio", "")
         )
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
         print(f"❌ 소개글 생성 실패: {e}")
         raise HTTPException(status_code=500, detail=f"소개글 생성 실패: {str(e)}")
