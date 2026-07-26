@@ -72,6 +72,49 @@ class ChatRequest(BaseModel):
     current_message: str      # 현재 사용자가 보낸 메시지
     schema_json: Optional[dict] = None  # (선택) 가게별 주문서 양식 (슬롯 필링용)
 
+class TagRecommendationRequest(BaseModel):
+    """(AI) 포트폴리오 태그 추천 요청 데이터 모델"""
+    image_url: Optional[str] = None     # 포트폴리오 이미지 URL
+    image_b64: Optional[str] = None     # 포트폴리오 이미지 Base64
+    description: Optional[str] = None   # 추가 설명문 (선택)
+
+
+class TagRecommendationResponse(BaseModel):
+    """(AI) 포트폴리오 태그 추천 응답 데이터 모델"""
+    recommended_tags: List[str]         # 추천된 태그 목록 (예: ["입체케이크", "강아지케이크", "생일"])
+
+class ReviewSummaryRequest(BaseModel):
+    reviews: list[str]
+
+class ReviewSummaryResponse(BaseModel):
+    summary: str
+    positive_points: list[str]
+    negative_points: list[str]
+
+class StoreProfileSuggestRequest(BaseModel):
+    """(AI) 프로필 개선 제안 요청 데이터 모델"""
+    storeName: str
+    description: Optional[str] = ""
+    notice: Optional[str] = ""
+    cautionNotice: Optional[str] = ""
+
+
+class StoreProfileSuggestResponse(BaseModel):
+    """(AI) 프로필 개선 제안 응답 데이터 모델"""
+    overallFeedback: str
+    suggestions: List[str]
+
+
+class StoreBioGenerateRequest(BaseModel):
+    """(AI) 소개글 자동 생성 요청 데이터 모델"""
+    storeName: str
+    keywords: Optional[str] = ""
+    concept: Optional[str] = ""
+
+
+class StoreBioGenerateResponse(BaseModel):
+    """(AI) 소개글 자동 생성 응답 데이터 모델"""
+    generatedBio: str
 
 # --- S3 및 웹훅 설정 ---
 
@@ -271,6 +314,162 @@ async def generate_cake(request: InpaintRequest, background_tasks: BackgroundTas
     background_tasks.add_task(process_and_send_webhook, request.task_id, request)
     return {"message": "Processing started", "status": "202 Accepted", "task_id": request.task_id}
 
+@app.post("/api/ai/portfolios/tags/recommend", response_model=TagRecommendationResponse)
+async def recommend_portfolio_tags(request: TagRecommendationRequest):
+    """
+    [(AI) 포트폴리오 태그 추천 API]
+    이미지(URL 또는 Base64)와 설명을 분석하여 
+    커스텀 케이크 포트폴리오에 어울리는 추천 태그 목록(List[str])을 반환합니다.
+    """
+    print(f"🏷️ 포트폴리오 태그 추천 요청 수신 (설명: {request.description})")
+    try:
+        # 1. 이미지 로드 (URL 우선, 없으면 Base64)
+        input_img = load_image(url=request.image_url, b64_str=request.image_b64)
+
+        if not input_img and not request.description:
+            raise HTTPException(status_code=400, detail="이미지(image_url/image_b64) 또는 설명(description) 중 하나는 필수입니다.")
+
+        # 2. AI 분석용 프롬프트 구성
+        system_prompt = (
+            "You are an expert AI tagger for custom cake portfolios. "
+            "Analyze the provided image and/or text description of the custom cake. "
+            "Extract 3 to 7 concise and relevant Korean tags. "
+            "Focus on: Cake category, Color, Design elements, Character, Target recipient, or Anniversary type. "
+            "Example tags: ['입체케이크', '강아지', '파스텔톤', '생일축하', '티아라', '레터링케이크']. "
+            "\n\n### Response Format (JSON only):"
+            "\n{"
+            "\n  'recommended_tags': ['태그1', '태그2', '태그3']"
+            "\n}"
+        )
+
+        contents = [system_prompt]
+
+        # 이미지가 존재하는 경우 멀티모달 입력으로 추가
+        if input_img:
+            contents.append(input_img)
+
+        # 텍스트 설명이 존재하는 경우 추가
+        if request.description:
+            contents.append(f"Additional Description: {request.description}")
+
+        # 3. Gemini 모델 호출 (JSON 응답 모드)
+        response = client.models.generate_content(
+            model=CHAT_MODEL,
+            contents=contents,
+            config={
+                "response_mime_type": "application/json"
+            }
+        )
+
+        # 4. JSON 파싱 및 결과 반환
+        result_json = json.loads(response.text)
+        return TagRecommendationResponse(
+            recommended_tags=result_json.get("recommended_tags", [])
+        )
+
+    except Exception as e:
+        print(f"❌ 태그 추천 처리 중 에러 발생: {e}")
+        raise HTTPException(status_code=500, detail=f"태그 추천 처리 실패: {str(e)}")
+
+@app.post("/api/ai/reviews/summary")
+async def summarize_reviews(request: ReviewSummaryRequest):
+    prompt = (
+        "You are an AI specialized in analyzing customer reviews for custom cake shops. "
+        "Analyze the following list of reviews and generate: "
+        "1. Overall summary (2-3 sentences in Korean) "
+        "2. Key positive points (bullet points) "
+        "3. Key areas for improvement or negative points (bullet points) "
+        "\n\n### Response Format (JSON only):"
+        "\n{"
+        "\n  'summary': '종합 요약문',"
+        "\n  'positive_points': ['장점1', '장점2'],"
+        "\n  'negative_points': ['아쉬운점1']"
+        "\n}"
+    )
+    
+    contents = [prompt, f"Reviews: {json.dumps(request, ensure_ascii=False)}"]
+    
+    response = client.models.generate_content(
+        model=CHAT_MODEL,
+        contents=contents,
+        config={"response_mime_type": "application/json"}
+    )
+    
+    return json.loads(response.text)
+
+@app.post("/api/ai/stores/profile-suggest", response_model=StoreProfileSuggestResponse)
+async def suggest_profile_improvement(request: StoreProfileSuggestRequest):
+    """
+    1. [(AI) 프로필 개선 제안 API]
+    매장의 현재 프로필(소개, 공지사항, 주의사항)을 분석하여 개선점 및 피드백을 제공합니다.
+    """
+    print(f"💡 프로필 개선 제안 요청 수신 (매장명: {request.storeName})")
+    try:
+        prompt = (
+            "You are a professional marketing and branding consultant for custom cake shops. "
+            "Analyze the following shop profile information and provide constructive feedback and actionable suggestions "
+            "to make the profile more appealing to customers and improve conversion rates. "
+            "\n\n### Profile Information:"
+            f"\n- Store Name: {request.storeName}"
+            f"\n- Description: {request.description}"
+            f"\n- Notice: {request.notice}"
+            f"\n- Caution/Order Rules: {request.cautionNotice}"
+            "\n\n### Response Format (JSON only in Korean):"
+            "\n{"
+            "\n  'overallFeedback': '전반적인 피드백 및 평가 (2-3문장)',"
+            "\n  'suggestions': ['개선 제안 1', '개선 제안 2', '개선 제안 3']"
+            "\n}"
+        )
+
+        response = client.models.generate_content(
+            model=CHAT_MODEL,
+            contents=[prompt],
+            config={"response_mime_type": "application/json"}
+        )
+        result_json = json.loads(response.text)
+        return StoreProfileSuggestResponse(
+            overallFeedback=result_json.get("overallFeedback", ""),
+            suggestions=result_json.get("suggestions", [])
+        )
+    except Exception as e:
+        print(f"❌ 프로필 개선 제안 처리 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"프로필 개선 제안 처리 실패: {str(e)}")
+
+
+@app.post("/api/ai/stores/generate-bio", response_model=StoreBioGenerateResponse)
+async def generate_store_bio(request: StoreBioGenerateRequest):
+    """
+    2. [(AI) 소개글 자동 생성 API]
+    매장명, 키워드, 컨셉을 기반으로 매력적인 매장 소개문(Bio)을 자동 작성합니다.
+    """
+    print(f"✍️ 소개글 자동 생성 요청 수신 (매장명: {request.storeName})")
+    try:
+        prompt = (
+            "You are a professional copywriter for custom cake shops. "
+            "Generate a charming, polite, and catchy shop introduction bio (2-4 sentences in Korean) "
+            "based on the store name, keywords, and concept provided below. "
+            "\n\n### Input Data:"
+            f"\n- Store Name: {request.storeName}"
+            f"\n- Keywords: {request.keywords}"
+            f"\n- Concept/Vibe: {request.concept}"
+            "\n\n### Response Format (JSON only):"
+            "\n{"
+            "\n  'generatedBio': '생성된 친절하고 매력적인 매장 소개글 문장'"
+            "\n}"
+        )
+
+        response = client.models.generate_content(
+            model=CHAT_MODEL,
+            contents=[prompt],
+            config={"response_mime_type": "application/json"}
+        )
+        result_json = json.loads(response.text)
+        return StoreBioGenerateResponse(
+            generatedBio=result_json.get("generatedBio", "")
+        )
+    except Exception as e:
+        print(f"❌ 소개글 생성 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"소개글 생성 실패: {str(e)}")
 
 @app.get("/")
 async def health():
