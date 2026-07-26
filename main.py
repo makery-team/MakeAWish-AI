@@ -46,7 +46,7 @@ from datetime import datetime
 # --- 데이터 모델 정의 ---
 
 
-from typing import Optional
+from typing import Optional, List
 
 class InpaintRequest(BaseModel):
     """이미지 편집(인페인팅) 요청 데이터 모델"""
@@ -84,12 +84,12 @@ class TagRecommendationResponse(BaseModel):
     recommended_tags: List[str]         # 추천된 태그 목록 (예: ["입체케이크", "강아지케이크", "생일"])
 
 class ReviewSummaryRequest(BaseModel):
-    reviews: list[str]
+    reviews: List[str]
 
 class ReviewSummaryResponse(BaseModel):
     summary: str
-    positive_points: list[str]
-    negative_points: list[str]
+    positive_points: List[str]
+    negative_points: List[str]
 
 class StoreProfileSuggestRequest(BaseModel):
     """(AI) 프로필 개선 제안 요청 데이터 모델"""
