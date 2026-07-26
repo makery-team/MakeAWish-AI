@@ -371,31 +371,51 @@ async def recommend_portfolio_tags(request: TagRecommendationRequest):
         print(f"❌ 태그 추천 처리 중 에러 발생: {e}")
         raise HTTPException(status_code=500, detail=f"태그 추천 처리 실패: {str(e)}")
 
-@app.post("/api/ai/reviews/summary")
+@app.post("/api/ai/reviews/summary", response_model=ReviewSummaryResponse)
 async def summarize_reviews(request: ReviewSummaryRequest):
-    prompt = (
-        "You are an AI specialized in analyzing customer reviews for custom cake shops. "
-        "Analyze the following list of reviews and generate: "
-        "1. Overall summary (2-3 sentences in Korean) "
-        "2. Key positive points (bullet points) "
-        "3. Key areas for improvement or negative points (bullet points) "
-        "\n\n### Response Format (JSON only):"
-        "\n{"
-        "\n  'summary': '종합 요약문',"
-        "\n  'positive_points': ['장점1', '장점2'],"
-        "\n  'negative_points': ['아쉬운점1']"
-        "\n}"
-    )
-    
-    contents = [prompt, f"Reviews: {json.dumps(request, ensure_ascii=False)}"]
-    
-    response = client.models.generate_content(
-        model=CHAT_MODEL,
-        contents=contents,
-        config={"response_mime_type": "application/json"}
-    )
-    
-    return json.loads(response.text)
+    """
+    [(AI) 리뷰 요약 조회 API]
+    고객 리뷰 목록(List[str])을 분석하여 종합 요약 및 긍정/개선 포인트를 JSON 형태로 반환합니다.
+    """
+    print(f"📊 리뷰 요약 요청 수신 (리뷰 수: {len(request.reviews)}개)")
+    try:
+        if not request.reviews:
+            raise HTTPException(status_code=400, detail="리뷰 목록은 최소 1개 이상이어야 합니다.")
+
+        prompt = (
+            "You are an AI specialized in analyzing customer reviews for custom cake shops. "
+            "Analyze the following list of reviews and generate: "
+            "1. Overall summary (2-3 sentences in Korean) "
+            "2. Key positive points (bullet points) "
+            "3. Key areas for improvement or negative points (bullet points) "
+            "\n\n### Response Format (JSON only):"
+            "\n{"
+            "\n  \"summary\": \"종합 요약문\","
+            "\n  \"positive_points\": [\"장점1\", \"장점2\"],"
+            "\n  \"negative_points\": [\"아쉬운점1\"]"
+            "\n}"
+        )
+
+        contents = [prompt, f"Reviews: {json.dumps(request.reviews, ensure_ascii=False)}"]
+
+        response = client.models.generate_content(
+            model=CHAT_MODEL,
+            contents=contents,
+            config={"response_mime_type": "application/json"}
+        )
+
+        result_json = json.loads(response.text)
+        return ReviewSummaryResponse(
+            summary=result_json.get("summary", ""),
+            positive_points=result_json.get("positive_points", []),
+            negative_points=result_json.get("negative_points", [])
+        )
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        print(f"❌ 리뷰 요약 처리 중 에러 발생: {e}")
+        raise HTTPException(status_code=500, detail=f"리뷰 요약 처리 실패: {str(e)}")
+
 
 @app.post("/api/ai/stores/profile-suggest", response_model=StoreProfileSuggestResponse)
 async def suggest_profile_improvement(request: StoreProfileSuggestRequest):
