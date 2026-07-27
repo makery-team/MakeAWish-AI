@@ -7,6 +7,7 @@ import uuid
 import os
 import httpx
 from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 # Gemini API 호출용 Python SDK
 from google import genai
@@ -23,6 +24,15 @@ IMAGE_MODEL = "gemini-3.1-flash-image-preview"
 client = genai.Client()
 
 app = FastAPI(title="MakeAWish-AI Server")
+
+# CORS 미들웨어 추가 (OPTIONS 405 에러 및 프론트엔드 통신 해결)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # --- 서버 시작 이벤트 (모델 워밍업) ---
@@ -75,8 +85,12 @@ class ChatRequest(BaseModel):
 class TagRecommendationRequest(BaseModel):
     """(AI) 포트폴리오 태그 추천 요청 데이터 모델"""
     image_url: Optional[str] = None     # 포트폴리오 이미지 URL
+    imageUrl: Optional[str] = None      # (호환) 카멜케이스 이미지 URL
     image_b64: Optional[str] = None     # 포트폴리오 이미지 Base64
+    imageB64: Optional[str] = None      # (호환) 카멜케이스 Base64
     description: Optional[str] = None   # 추가 설명문 (선택)
+    text: Optional[str] = None          # (호환) 텍스트 설명
+    prompt: Optional[str] = None        # (호환) 프롬프트 설명
 
 
 class TagRecommendationResponse(BaseModel):
@@ -315,18 +329,28 @@ async def generate_cake(request: InpaintRequest, background_tasks: BackgroundTas
     return {"message": "Processing started", "status": "202 Accepted", "task_id": request.task_id}
 
 @app.post("/api/ai/portfolios/tags/recommend", response_model=TagRecommendationResponse)
+@app.post("/api/ai/generate-tags", response_model=TagRecommendationResponse)
 async def recommend_portfolio_tags(request: TagRecommendationRequest):
     """
     [(AI) 포트폴리오 태그 추천 API]
     이미지(URL 또는 Base64)와 설명을 분석하여 
     커스텀 케이크 포트폴리오에 어울리는 추천 태그 목록(List[str])을 반환합니다.
     """
-    print(f"🏷️ 포트폴리오 태그 추천 요청 수신 (설명: {request.description})")
+    url = request.image_url or request.imageUrl
+    b64 = request.image_b64 or request.imageB64
+    desc = request.description or request.text or request.prompt
+
+    print(f"🏷️ 포트폴리오 태그 추천 요청 수신 (설명: {desc})")
     try:
         # 1. 이미지 로드 (URL 우선, 없으면 Base64)
-        input_img = load_image(url=request.image_url, b64_str=request.image_b64)
+        input_img = None
+        if url or b64:
+            try:
+                input_img = load_image(url=url, b64_str=b64)
+            except Exception as img_err:
+                print(f"⚠️ 이미지 로드 실패 (텍스트 설명으로 대체 시도): {img_err}")
 
-        if not input_img and not request.description:
+        if not input_img and not desc:
             raise HTTPException(status_code=400, detail="이미지(image_url/image_b64) 또는 설명(description) 중 하나는 필수입니다.")
 
         # 2. AI 분석용 프롬프트 구성
@@ -349,8 +373,8 @@ async def recommend_portfolio_tags(request: TagRecommendationRequest):
             contents.append(input_img)
 
         # 텍스트 설명이 존재하는 경우 추가
-        if request.description:
-            contents.append(f"Additional Description: {request.description}")
+        if desc:
+            contents.append(f"Additional Description: {desc}")
 
         # 3. Gemini 모델 호출 (JSON 응답 모드)
         response = client.models.generate_content(
