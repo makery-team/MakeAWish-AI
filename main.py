@@ -95,8 +95,11 @@ class TagRecommendationRequest(BaseModel):
 
 
 class TagRecommendationResponse(BaseModel):
-    """(AI) 포트폴리오 태그 추천 응답 데이터 모델"""
-    recommended_tags: List[str]         # 추천된 태그 목록 (예: ["입체케이크", "강아지케이크", "생일"])
+    """(AI) 포트폴리오 태그 추천 응답 데이터 모델 (Spring Boot 백엔드 DTO 호환)"""
+    recommended_tags: List[str]         # 파이썬/스네이크 케이스
+    recommendedTags: List[str]          # 자바/카멜 케이스 (Spring Boot 호환)
+    tags: List[str]                     # 단순 태그 배열 (Spring Boot 호환)
+    tagList: List[str]                  # 리스트 형식 호환
 
 class ReviewSummaryRequest(BaseModel):
     reviews: List[str]
@@ -395,15 +398,29 @@ async def recommend_portfolio_tags(request: TagRecommendationRequest):
 
         try:
             result_json = json.loads(raw_text)
-            tags = result_json.get("recommended_tags", [])
+            tags = (
+                result_json.get("recommended_tags")
+                or result_json.get("recommendedTags")
+                or result_json.get("tags")
+                or result_json.get("tagList")
+                or []
+            )
             if not tags or not isinstance(tags, list):
                 tags = ["커스텀케이크", "주문제작", "레터링케이크"]
-            return TagRecommendationResponse(recommended_tags=tags)
+            return TagRecommendationResponse(
+                recommended_tags=tags,
+                recommendedTags=tags,
+                tags=tags,
+                tagList=tags,
+            )
         except Exception as parse_err:
             print(f"⚠️ JSON 파싱 실패 ({parse_err}), raw_text: {raw_text}")
-            # 파싱 실패 시에도 500 에러를 방지하고 기본 추천 태그 반환
+            fallback_tags = ["커스텀케이크", "주문제작", "레터링케이크"]
             return TagRecommendationResponse(
-                recommended_tags=["커스텀케이크", "주문제작", "레터링케이크"]
+                recommended_tags=fallback_tags,
+                recommendedTags=fallback_tags,
+                tags=fallback_tags,
+                tagList=fallback_tags,
             )
 
     except HTTPException as http_exc:
