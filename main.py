@@ -1,6 +1,7 @@
 import base64
 import io
 import json
+import re
 import requests
 import boto3
 import uuid
@@ -353,17 +354,15 @@ async def recommend_portfolio_tags(request: TagRecommendationRequest):
         if not input_img and not desc:
             raise HTTPException(status_code=400, detail="이미지(image_url/image_b64) 또는 설명(description) 중 하나는 필수입니다.")
 
-        # 2. AI 분석용 프롬프트 구성
+        # 2. AI 분석용 프롬프트 구성 (엄격한 JSON 더블 쿼트 포맷 지정)
         system_prompt = (
             "You are an expert AI tagger for custom cake portfolios. "
             "Analyze the provided image and/or text description of the custom cake. "
             "Extract 3 to 7 concise and relevant Korean tags. "
             "Focus on: Cake category, Color, Design elements, Character, Target recipient, or Anniversary type. "
-            "Example tags: ['입체케이크', '강아지', '파스텔톤', '생일축하', '티아라', '레터링케이크']. "
-            "\n\n### Response Format (JSON only):"
-            "\n{"
-            "\n  'recommended_tags': ['태그1', '태그2', '태그3']"
-            "\n}"
+            'Example tags: ["입체케이크", "강아지", "파스텔톤", "생일축하", "티아라", "레터링케이크"]. '
+            "\n\n### Response Format (Strict JSON only with double quotes):"
+            '\n{"recommended_tags": ["태그1", "태그2", "태그3"]}'
         )
 
         contents = [system_prompt]
@@ -385,11 +384,27 @@ async def recommend_portfolio_tags(request: TagRecommendationRequest):
             }
         )
 
-        # 4. JSON 파싱 및 결과 반환
-        result_json = json.loads(response.text)
-        return TagRecommendationResponse(
-            recommended_tags=result_json.get("recommended_tags", [])
-        )
+        # 4. JSON 파싱 및 예외 안전 처리 (마크다운/트레일링 콤마 보정 후 로드)
+        raw_text = response.text.strip()
+        match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+        if match:
+            raw_text = match.group(0)
+
+        # 트레일링 콤마(끝 쉼표) 제거 보정
+        raw_text = re.sub(r",\s*([\]}])", r"\1", raw_text)
+
+        try:
+            result_json = json.loads(raw_text)
+            tags = result_json.get("recommended_tags", [])
+            if not tags or not isinstance(tags, list):
+                tags = ["커스텀케이크", "주문제작", "레터링케이크"]
+            return TagRecommendationResponse(recommended_tags=tags)
+        except Exception as parse_err:
+            print(f"⚠️ JSON 파싱 실패 ({parse_err}), raw_text: {raw_text}")
+            # 파싱 실패 시에도 500 에러를 방지하고 기본 추천 태그 반환
+            return TagRecommendationResponse(
+                recommended_tags=["커스텀케이크", "주문제작", "레터링케이크"]
+            )
 
     except HTTPException as http_exc:
         raise http_exc
