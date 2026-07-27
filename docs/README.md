@@ -19,6 +19,7 @@
 ### 🐞 버그 수정 및 이슈 분석 (`bugfix_`)
 | 작성일자 | 문서명 | 핵심 주제 및 해결 내용 |
 | :---: | :--- | :--- |
+| **2026-07-27** | [`2026-07-27_bugfix_tag_recommend_cors_dto_and_json_parsing.md`](./2026-07-27_bugfix_tag_recommend_cors_dto_and_json_parsing.md) | **AI 태그 추천 API CORS, Spring Boot Java DTO 호환 및 JSON 파싱 장애 해결**<br>• 405/404/400/500 에러 및 응답 `None(null)` 바인딩 문제 완벽 해결 |
 | **2026-07-26** | [`2026-07-26_bugfix_http_exception_handling_and_tag_recommend.md`](./2026-07-26_bugfix_http_exception_handling_and_tag_recommend.md) | **AI 태그 추천 및 프로필 개선 API HTTP 예외 방어 로직 수정**<br>• `HTTPException` 발생 시 500 에러로 중복 래핑되던 문제 해결 |
 | **2026-07-25** | [`2026-07-25_bugfix_review_summary_api_serialization.md`](./2026-07-25_bugfix_review_summary_api_serialization.md) | **AI 리뷰 요약 API(`ReviewSummaryRequest`) Pydantic 직렬화 오류 수정**<br>• 요청 바디 형식 불일치로 인한 422 Unprocessable Entity 해결 |
 | **2026-07-25** | [`2026-07-25_bugfix_portfolio_list_type_import.md`](./2026-07-25_bugfix_portfolio_list_type_import.md) | **AI 포트폴리오 API의 `typing.List` 임포트 누락 및 스키마 명세 일관성 개선** |
