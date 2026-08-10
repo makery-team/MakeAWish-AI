@@ -494,8 +494,8 @@ async def suggest_profile_improvement(request: StoreProfileSuggestRequest):
             f"\n- Caution/Order Rules: {request.cautionNotice}"
             "\n\n### Response Format (JSON only in Korean):"
             "\n{"
-            "\n  'overallFeedback': '전반적인 피드백 및 평가 (2-3문장)',"
-            "\n  'suggestions': ['개선 제안 1', '개선 제안 2', '개선 제안 3']"
+            "\n  \"overallFeedback\": \"전반적인 피드백 및 평가 (2-3문장)\","
+            "\n  \"suggestions\": [\"개선 제안 1\", \"개선 제안 2\", \"개선 제안 3\"]"
             "\n}"
         )
 
@@ -534,7 +534,7 @@ async def generate_store_bio(request: StoreBioGenerateRequest):
             f"\n- Concept/Vibe: {request.concept}"
             "\n\n### Response Format (JSON only):"
             "\n{"
-            "\n  'generatedBio': '생성된 친절하고 매력적인 매장 소개글 문장'"
+            "\n  \"generatedBio\": \"생성된 친절하고 매력적인 매장 소개글 문장\""
             "\n}"
         )
 
