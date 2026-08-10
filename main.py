@@ -544,7 +544,15 @@ async def generate_store_bio(request: StoreBioGenerateRequest):
             config={"response_mime_type": "application/json"}
         )
         print(f"RAW AI RESPONSE: {response.text}")
-        result_json = json.loads(response.text)
+        raw_text = response.text.strip()
+        
+        # 간혹 AI 응답이 '}'를 출력하지 못하고 끝나는 경우(Truncation) 자동 보정
+        if not raw_text.endswith("}"):
+            if not raw_text.endswith('"'):
+                raw_text += '"'
+            raw_text += "}"
+            
+        result_json = json.loads(raw_text)
         return StoreBioGenerateResponse(
             generatedBio=result_json.get("generatedBio", "")
         )
