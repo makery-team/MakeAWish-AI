@@ -532,9 +532,9 @@ async def generate_store_bio(request: StoreBioGenerateRequest):
             f"\n- Store Name: {request.storeName}"
             f"\n- Keywords: {request.keywords}"
             f"\n- Concept/Vibe: {request.concept}"
-            "\n\n### Response Format (JSON only):"
+            "\n\n### Response Format (Strict JSON only, no markdown blocks, no trailing commas):"
             "\n{"
-            "\n  \"generatedBio\": \"생성된 친절하고 매력적인 매장 소개글 문장\""
+            "\n  \"generatedBio\": \"단 하나의 완전한 문자열로 합쳐서 작성된 매장 소개글\""
             "\n}"
         )
 
@@ -543,6 +543,7 @@ async def generate_store_bio(request: StoreBioGenerateRequest):
             contents=[prompt],
             config={"response_mime_type": "application/json"}
         )
+        print(f"RAW AI RESPONSE: {response.text}")
         result_json = json.loads(response.text)
         return StoreBioGenerateResponse(
             generatedBio=result_json.get("generatedBio", "")
