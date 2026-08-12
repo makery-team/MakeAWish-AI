@@ -288,7 +288,7 @@ async def chat_handler(request: ChatRequest):
             "\n  'data': {"
             "\n    'tags': ['빨강', '생일'] (PORTFOLIO_LIST인 경우만),"
             "\n    'extracted_slots': { '항목': '값' } (SHOW_SCHEMA, CONFIRM_SLOTS인 경우만),"
-            "\n    'options': ['선택지1', '선택지2'] (SHOW_SCHEMA 질문에 대해 주문서 양식 상 선택지가 있다면 추가),"
+            "\n    'next_question': '다음에 물어볼 질문' (SHOW_SCHEMA인 경우, 아직 채워지지 않은 슬롯에 대한 자연스러운 질문),"
             "\n    'status': 'IN_PROGRESS' 또는 'COMPLETED' (주문 관련 시)"
             "\n  } 또는 데이터가 없으면 null"
             "\n}"
