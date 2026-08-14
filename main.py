@@ -296,9 +296,15 @@ async def chat_handler(request: ChatRequest):
 
         # 가게의 주문서 양식이 제공된 경우 프롬프트에 추가
         if request.schema_json:
+            labels = []
+            if "templates" in request.schema_json:
+                labels = [item.get("label") for item in request.schema_json["templates"] if item.get("label")]
+            else:
+                labels = list(request.schema_json.keys())
+
             system_prompt += (
-                f"\n\n[현재 주문서 양식]: {json.dumps(request.schema_json, ensure_ascii=False)}"
-                "\n\n[중요 지침]: 'data.extracted_slots'를 작성할 때, 반드시 [현재 주문서 양식]에 정의된 키(Key) 이름들만 정확히 사용해서 매핑하세요. 절대 임의의 새로운 키(예: '픽업일자', '시간', '케이크 맛' 등)를 만들거나 중복으로 넣지 마세요."
+                f"\n\n[현재 주문서 양식 항목들]: {json.dumps(labels, ensure_ascii=False)}"
+                "\n\n[중요 지침]: 'data.extracted_slots'를 작성할 때, 반드시 [현재 주문서 양식 항목들]에 정의된 이름들만 정확히 Key로 사용해서 매핑하세요. 절대 임의의 새로운 키(예: '픽업일자', '시간', '케이크 맛' 등)를 만들거나 중복으로 넣지 마세요."
             )
 
         # 대화 맥락 구성을 위해 이전 내역과 현재 메시지 결합
