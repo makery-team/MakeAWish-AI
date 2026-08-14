@@ -299,6 +299,9 @@ async def chat_handler(request: ChatRequest):
             labels = []
             if "templates" in request.schema_json:
                 labels = [item.get("label") for item in request.schema_json["templates"] if item.get("label")]
+            elif "properties" in request.schema_json:
+                props = request.schema_json.get("properties", {})
+                labels = [props[k].get("label") for k in props if props[k].get("label")]
             else:
                 labels = list(request.schema_json.keys())
 
