@@ -554,22 +554,23 @@ async def generate_store_bio(request: StoreBioGenerateRequest):
             config={"response_mime_type": "application/json"}
         )
         print(f"RAW AI RESPONSE: {response.text}")
-        raw_text = response.text.strip()
+        raw_text = response.text.strip() if response.text else ""
         
-        # JSON 포맷만 정확하게 추출 (불필요한 꼬리표나 중복 괄호 제거)
-        match = re.search(r'\{.*\}', raw_text, re.DOTALL)
-        if match:
-            raw_text = match.group(0)
+        bio = ""
+        try:
+            result_json = json.loads(raw_text)
+            bio = result_json.get("generatedBio", "")
+        except Exception:
+            # Extra data 및 중복 괄호 등 파싱 실패 시 정규식으로 직접 추출
+            bio_match = re.search(r'"generatedBio"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"', raw_text)
+            if bio_match:
+                bio = bio_match.group(1).replace('\\"', '"').replace('\\n', '\n')
+            else:
+                clean_txt = re.sub(r'[{}\"\']', '', raw_text).replace('generatedBio:', '').strip()
+                bio = clean_txt if clean_txt else "매장 소개글이 성공적으로 생성되었습니다."
             
-        # 간혹 AI 응답이 '}'를 출력하지 못하고 끝나는 경우(Truncation) 자동 보정
-        if not raw_text.endswith("}"):
-            if not raw_text.endswith('"'):
-                raw_text += '"'
-            raw_text += "}"
-            
-        result_json = json.loads(raw_text)
         return StoreBioGenerateResponse(
-            generatedBio=result_json.get("generatedBio", "")
+            generatedBio=bio
         )
     except HTTPException as http_exc:
         raise http_exc
