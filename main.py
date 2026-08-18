@@ -556,6 +556,11 @@ async def generate_store_bio(request: StoreBioGenerateRequest):
         print(f"RAW AI RESPONSE: {response.text}")
         raw_text = response.text.strip()
         
+        # JSON 포맷만 정확하게 추출 (불필요한 꼬리표나 중복 괄호 제거)
+        match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+        if match:
+            raw_text = match.group(0)
+            
         # 간혹 AI 응답이 '}'를 출력하지 못하고 끝나는 경우(Truncation) 자동 보정
         if not raw_text.endswith("}"):
             if not raw_text.endswith('"'):
