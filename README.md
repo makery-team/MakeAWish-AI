@@ -49,7 +49,7 @@ MakeAWish-AI/
 ├── services/                           # 핵심 AI 비즈니스 파이프라인
 │   ├── slot_filler.py                  # Gemini 기반 동적 스키마 슬롯필링 엔진
 │   ├── parser.py                       # 3단계 정규식 기반 Fallback JSON 파서
-│   ├── inpainter.py                    # Stable Diffusion 국소 영역 인페인팅
+│   ├── inpainter.py                    # Gemini 3.1 Flash Image 국소 영역 인페인팅
 │   └── vision_tagger.py                # 케이크 이미지 분석 및 자동 태그 생성기
 ├── schemas/                            # Pydantic v2 입출력 DTO 명세
 ├── tests/                              # pytest 단위 및 통합 테스트
