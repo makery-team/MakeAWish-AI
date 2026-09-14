@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/Uvicorn-ASGI-499848?style=for-the-badge" />
 </p>
 
-MakeAWish AI 마이크로서비스 저장소입니다. FastAPI 기반의 비동기 서빙 엔진으로, 매장별 동적 주문서 양식(JSON Schema)을 런타임에 학습하여 대화형 슬롯필링을 수행하고, 케이크 실물 사진의 질감을 유지하며 핑거 마스킹 영역만 합성하는 Stable Diffusion Inpainting 파이프라인을 제공합니다.
+MakeAWish AI 마이크로서비스 저장소입니다. FastAPI 기반의 비동기 서빙 엔진으로, 매장별 동적 주문서 양식(JSON Schema)을 런타임에 학습하여 대화형 슬롯필링을 수행하고, 케이크 실물 사진의 질감을 유지하며 핑거 마스킹 영역만 합성하는 Gemini 멀티모달 Inpainting 파이프라인을 제공합니다.
 
 ---
 
@@ -36,7 +36,7 @@ MakeAWish AI 마이크로서비스 저장소입니다. FastAPI 기반의 비동�
 
 - **Python 3.10+ & FastAPI**: 메인 서버와 분리하여 AI 연산 부하를 격리하고, `async/await` 코루틴 기반으로 비동기 I/O 처리.
 - **Pydantic v2**: 초고속 데이터 검증 및 타입 체킹 수행.
-- **Google Gemini 1.5 & Stable Diffusion Inpainting**: 언어 이해 및 슬롯 추출에는 저지연 LLM을 사용하고, 이미지 합성에는 Diffusion Inpainting 모델 활용.
+- **Google Gemini (gemini-3.5-flash & gemini-3.1-flash-image)**: 언어 이해 및 슬롯 추출에는 저지연 LLM을 사용하고, 이미지 합성에는 Gemini 3.1 Flash 멀티모달 Inpainting 모델 활용.
 
 ---
 
@@ -62,7 +62,7 @@ MakeAWish-AI/
 ## 4. 핵심 엔지니어링 구현 상세
 
 ### 4.1 런타임 동적 스키마 슬롯필링 (`main.py`)
-백엔드로부터 수신한 매장별 JSON 스키마에서 순수 한글 라벨(`label`) 목록만 필터링하여 Gemini 1.5 모델의 System Instruction 제약 조건으로 런타임에 동적 주입합니다. 이를 통해 모델 재학습 없이도 매장별 커스텀 질문 항목을 대화에서 100% 자동 추출합니다.
+백엔드로부터 수신한 매장별 JSON 스키마에서 순수 한글 라벨(`label`) 목록만 필터링하여 Gemini 3.5 Flash 모델의 System Instruction 제약 조건으로 런타임에 동적 주입합니다. 이를 통해 모델 재학습 없이도 매장별 커스텀 질문 항목을 대화에서 100% 자동 추출합니다.
 
 ```python
 # main.py 발췌: 스키마 라벨 필터링 및 동적 프롬프트 주입
@@ -124,8 +124,7 @@ def safe_parse_ai_json(raw_text: str) -> dict:
 | 문제 현상 | 원인 분석 | 해결 방법 |
 | :--- | :--- | :--- |
 | **JSON Schema 메타키 오인식** | `$schema`, `required` 같은 시스템 메타 키를 주문 옵션으로 잘못 추출 | 스키마 전처리 파이프라인을 구축하여 순수 옵션 필드만 정제 후 모델 주입 |
-| **중복 괄호(`}
-}`) 500 크래시** | LLM이 불완전한 JSON을 반환하여 `JSONDecodeError` 발생 | 3단계 정규식 & 브래킷 카운팅 Fallback 파서를 적용하여 200 OK 복구 |
+| **중복 괄호(`}\n}`) 500 크래시** | LLM이 불완전한 JSON을 반환하여 `JSONDecodeError` 발생 | 3단계 정규식 & 브래킷 카운팅 Fallback 파서를 적용하여 200 OK 복구 |
 | **Pydantic v2 직렬화 예외** | Pydantic v2 모델 인스턴스를 FastAPI `JSONResponse`에 직접 전달하여 `TypeError` 발생 | `.model_dump()`를 명시적으로 호출하여 표준 dict로 변환 후 직렬화 |
 | **필수값 누락 시 500 에러** | 광범위 try-except로 인해 클라이언트 입력 누락임에도 500 에러 반환 | Pydantic 유효성 검사 및 `HTTPException(status_code=400)` 명시적 분기 처리 |
 
