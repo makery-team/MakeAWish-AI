@@ -156,8 +156,8 @@ def upload_to_s3(img_bytes: bytes, content_type: str = "image/png") -> str:
         print(f"❌ S3 업로드 에러: {e}")
         raise e
 
-async def process_and_send_webhook(task_id: int, request: InpaintRequest):
-    """실제 이미지 생성 로직을 백그라운드에서 처리하고 웹훅으로 결과를 전송합니다."""
+def process_and_send_webhook(task_id: int, request: InpaintRequest):
+    """실제 이미지 생성 로직을 백그라운드 스레드에서 처리하고 웹훅으로 결과를 전송합니다."""
     webhook_url = os.getenv("WEBHOOK_URL", "http://localhost:8080/api/ai-agent/webhook/inpaint")
     try:
         # URL 또는 Base64 데이터를 이미지 객체로 변환
@@ -202,17 +202,18 @@ async def process_and_send_webhook(task_id: int, request: InpaintRequest):
 
         print("✅ S3 업로드 완료! 웹훅 전송...")
         payload = {"task_id": task_id, "result_image": result_url, "status": "COMPLETED"}
-        async with httpx.AsyncClient() as http_client:
-            await http_client.post(webhook_url, json=payload)
-            print("✅ 웹훅 전송 성공!")
+        try:
+            resp = requests.post(webhook_url, json=payload, timeout=20)
+            print(f"✅ 웹훅 전송 성공! (HTTP {resp.status_code})")
+        except Exception as we:
+            print(f"⚠️ 웹훅 전송 중 통신 에러: {we}")
 
     except Exception as e:
         print(f"❌ 작업 에러 발생: {e}")
         # 실패 웹훅 전송
         payload = {"task_id": task_id, "result_image": "", "status": "FAILED"}
         try:
-            async with httpx.AsyncClient() as http_client:
-                await http_client.post(webhook_url, json=payload)
+            requests.post(webhook_url, json=payload, timeout=10)
         except Exception:
             pass
 
@@ -221,16 +222,21 @@ async def process_and_send_webhook(task_id: int, request: InpaintRequest):
 
 def load_image(url: str = None, b64_str: str = None):
     """URL 또는 Base64 문자열로부터 PIL 이미지 객체를 생성합니다."""
+    img = None
     if url:
         try:
             response = requests.get(url, timeout=10)
             response.raise_for_status()
-            return Image.open(io.BytesIO(response.content))
+            img = Image.open(io.BytesIO(response.content))
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"이미지 URL 로드 실패: {e}")
     elif b64_str:
-        return b64_to_pil(b64_str)
-    return None
+        img = b64_to_pil(b64_str)
+    
+    if img:
+        # 고해상도 이미지(수 MB)를 1024x1024 크기로 최적화하여 Gemini 생성 속도 대폭 개선
+        img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+    return img
 
 
 def b64_to_pil(b64_str):
