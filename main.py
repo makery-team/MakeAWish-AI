@@ -75,6 +75,9 @@ class InpaintRequest(BaseModel):
     # 참고용 이미지 (URL 우선, 없으면 Base64)
     reference_image_url: Optional[str] = None
     reference_image_b64: Optional[str] = None
+    
+    # 백엔드가 직접 넘겨주는 웹훅 URL (우선순위 1위)
+    webhook_url: Optional[str] = None
 
 
 class ChatRequest(BaseModel):
@@ -158,7 +161,12 @@ def upload_to_s3(img_bytes: bytes, content_type: str = "image/png") -> str:
 
 def process_and_send_webhook(task_id: int, request: InpaintRequest):
     """실제 이미지 생성 로직을 백그라운드 스레드에서 처리하고 웹훅으로 결과를 전송합니다."""
-    webhook_url = os.getenv("WEBHOOK_URL", "http://localhost:8080/api/ai-agent/webhook/inpaint")
+    webhook_url = request.webhook_url or os.getenv("WEBHOOK_URL", "http://localhost:8080/api/ai-agent/webhook/inpaint")
+    # /api/ai-agent 경로 누락 자동 보정 (404 원천 방지)
+    if "/webhook/inpaint" in webhook_url and "/api/ai-agent" not in webhook_url:
+        webhook_url = webhook_url.replace("/webhook/inpaint", "/api/ai-agent/webhook/inpaint")
+    
+    print(f"📡 대상 웹훅 URL: {webhook_url}")
     try:
         # URL 또는 Base64 데이터를 이미지 객체로 변환
         original_img = load_image(url=request.image_url, b64_str=request.image_b64)
