@@ -4,8 +4,8 @@
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" />
   <img src="https://img.shields.io/badge/FastAPI-v0.100%2B-009688?style=for-the-badge&logo=fastapi&logoColor=white" />
   <img src="https://img.shields.io/badge/Pydantic-v2-E92063?style=for-the-badge&logo=pydantic&logoColor=white" />
-  <img src="https://img.shields.io/badge/Google%20Gemini-1.5%20%2F%20Flash-4285F4?style=for-the-badge&logo=google-gemini&logoColor=white" />
-  <img src="https://img.shields.io/badge/Stable%20Diffusion-Inpainting-FFA116?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Google_Gemini-Flash_Multimodal-4285F4?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/AWS_S3-Boto3-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white" />
   <img src="https://img.shields.io/badge/Uvicorn-ASGI-499848?style=for-the-badge" />
 </p>
 
@@ -40,20 +40,16 @@ MakeAWish AI 마이크로서비스 저장소입니다. FastAPI 기반의 비동�
 
 ---
 
-## 3. 프로젝트 구조 및 모듈 명세
+## 3. 프로젝트 구조 및 파일 명세
 
 ```text
 MakeAWish-AI/
-├── main.py                             # FastAPI 앱 엔트리포인트 및 라우터 등록
-├── core/                               # 설정 및 공통 로깅 (pydantic-settings)
-├── services/                           # 핵심 AI 비즈니스 파이프라인
-│   ├── slot_filler.py                  # Gemini 기반 동적 스키마 슬롯필링 엔진
-│   ├── parser.py                       # 3단계 정규식 기반 Fallback JSON 파서
-│   ├── inpainter.py                    # Gemini 3.1 Flash Image 국소 영역 인페인팅
-│   └── vision_tagger.py                # 케이크 이미지 분석 및 자동 태그 생성기
-├── schemas/                            # Pydantic v2 입출력 DTO 명세
-├── tests/                              # pytest 단위 및 통합 테스트
-├── client_test.py                      # 연동 검증용 테스트 스크립트
+├── main.py                             # FastAPI 서버 엔트리포인트, Pydantic 스키마 및 AI 파이프라인 통합 구현
+│                                       # - 동적 스키마 슬롯필링, Fallback JSON 파서
+│                                       # - 백그라운드 이미지 인페인팅 생성 후 S3 업로드 및 웹훅 전달
+│                                       # - 포트폴리오 이미지 자동 태그 추출 및 리뷰 답글 생성
+├── docs/                               # 연동 규격 및 참고 문서
+├── .env.example                        # 환경 변수 예시 파일
 └── requirements.txt                    # 의존성 패키지 명세
 ```
 
@@ -81,11 +77,11 @@ system_instruction = f"""
 """
 ```
 
-### 4.2 3단계 Fallback JSON 파서 (`services/parser.py`)
+### 4.2 3단계 Fallback JSON 파서 (`main.py`)
 LLM 응답에서 마크다운 코드 블록이나 중복 닫는 중괄호(`}}`)로 인한 `JSONDecodeError` 500 에러를 방지하기 위해 3단계 정규식 및 브래킷 밸런싱 파서를 구축했습니다.
 
 ```python
-# services/parser.py 발췌: 3단계 방어형 파서
+# main.py 발췌: 3단계 방어형 JSON 파싱 흐름
 def safe_parse_ai_json(raw_text: str) -> dict:
     cleaned = re.sub(r"^```[a-zA-Z]*\n|\n```$", "", raw_text.strip())
     # 1단계: 표준 파싱 시도
@@ -150,7 +146,4 @@ pip install -r requirements.txt
 
 # 서버 실행
 uvicorn main:app --reload --port 8000
-
-# 테스트 스크립트 실행
-python client_test.py
 ```
